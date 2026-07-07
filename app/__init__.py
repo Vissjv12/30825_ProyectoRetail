@@ -1,0 +1,2 @@
+"""Retail monitoring system package."""
+

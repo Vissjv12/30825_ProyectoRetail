@@ -1,0 +1,14 @@
+{
+  "camera": {
+    "source": 0,
+    "timeout_seconds": 5.0
+  },
+  "model": {
+    "path": "yolo11n.pt",
+    "confidence_threshold": 0.25
+  },
+  "llm": {
+    "provider": "openai"
+  }
+}
+

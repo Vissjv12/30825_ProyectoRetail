@@ -1,0 +1,23 @@
+{
+  "zones": [
+    {
+      "zone_id": "A",
+      "name": "Shelf A",
+      "x1": 0,
+      "y1": 0,
+      "x2": 640,
+      "y2": 360,
+      "allowed_classes": ["banana", "apple", "orange", "bottle"]
+    },
+    {
+      "zone_id": "B",
+      "name": "Shelf B",
+      "x1": 0,
+      "y1": 361,
+      "x2": 640,
+      "y2": 720,
+      "allowed_classes": ["person", "bottle"]
+    }
+  ]
+}
+

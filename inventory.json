@@ -1,0 +1,18 @@
+{
+  "expectations": [
+    {
+      "zone_id": "A",
+      "items": [
+        { "class_name": "banana", "min_count": 2, "max_count": 12, "target_count": 6 },
+        { "class_name": "apple", "min_count": 1, "max_count": 10, "target_count": 4 }
+      ]
+    },
+    {
+      "zone_id": "B",
+      "items": [
+        { "class_name": "bottle", "min_count": 1, "max_count": 8, "target_count": 3 }
+      ]
+    }
+  ]
+}
+

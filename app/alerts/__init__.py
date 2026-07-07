@@ -1,0 +1,2 @@
+"""Alert management domain."""
+

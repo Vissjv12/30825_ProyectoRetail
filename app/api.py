@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
-from fastapi import FastAPI
+import numpy as np
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from PIL import Image
 
 from app.config.loader import load_inventory_config, load_settings_config, load_zones_config
+from app.core.models import FramePayload
 from app.infrastructure.camera_manager import CameraManager
 from app.orchestration.pipeline import MonitoringPipeline
 
@@ -31,5 +36,24 @@ def create_app() -> FastAPI:
         finally:
             camera.close()
 
-    return app
+    @app.post("/analyze-image")
+    async def analyze_image(file: UploadFile = File(...)) -> dict:
+        if file.content_type is not None and not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Only image files are allowed")
 
+        try:
+            raw = await file.read()
+            image = Image.open(BytesIO(raw)).convert("RGB")
+        except Exception as exc:  # pragma: no cover - defensive parsing
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {exc}") from exc
+
+        frame = FramePayload(
+            frame_id=file.filename or "uploaded-image",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            source=file.filename or "uploaded-image",
+            image=np.array(image),
+            metadata={"content_type": file.content_type, "filename": file.filename},
+        )
+        return pipeline.run(frame)
+
+    return app

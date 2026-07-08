@@ -17,8 +17,8 @@ def crear_anotadores():
 
 # --- CONFIGURACIÓN GENERAL
 MODELO_PATH = "yolov8n.pt"  # Cambia a tu archivo .pt (yolo11n.pt si lo tienes)
-IMAGEN_PATH = "prueba.jpg"  # Imagen local
-SALIDA_PATH = "resultado_yolo.jpg"
+IMAGEN_PATH = "prueba.jpeg"  # Imagen local
+SALIDA_PATH = "resultado_yolo.jpeg"  # Imagen de salida
 
 # --- CARGA DEL MODELO
 modelo = YOLO(MODELO_PATH)

@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Retail Monitor — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design tokens ─────────────────────────────────────── */
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --accent: #58a6ff;
+      --accent2: #3fb950;
+      --critical: #f85149;
+      --high: #d29922;
+      --medium: #58a6ff;
+      --low: #3fb950;
+      --radius: 12px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: all 0.2s ease;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Top bar ───────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(8px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .logo svg {
+      flex-shrink: 0;
+    }
+
+    .api-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .api-row input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      width: 210px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .api-row input:focus {
+      border-color: var(--accent);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent2);
+      animation: pulse 2s infinite;
+      flex-shrink: 0;
+    }
+
+    .status-dot.offline {
+      background: #555;
+      animation: none;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: .5;
+        transform: scale(1.15);
+      }
+    }
+
+    /* ── Main layout ──────────────────────────────────────── */
+    main {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+      display: grid;
+      gap: 24px;
+    }
+
+    /* ── Upload zone ─────────────────────────────────────── */
+    .upload-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .upload-card {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-card:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+    }
+
+    .upload-card input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-card .icon {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .upload-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .upload-card p {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+    }
+
+    .btn-primary:hover {
+      background: #79baff;
+    }
+
+    .btn-success {
+      background: var(--accent2);
+      color: #0d1117;
+    }
+
+    .btn-success:hover {
+      background: #56d364;
+    }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .btn-run {
+      display: flex;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    /* ── Progress bar ────────────────────────────────────── */
+    .progress-wrap {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .progress-wrap.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .progress-text {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* ── KPI cards ──────────────────────────────────────── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--kpi-color, var(--accent));
+    }
+
+    .kpi-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: var(--kpi-color, var(--text));
+    }
+
+    .kpi-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Section header ──────────────────────────────────── */
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Two-col layout ─────────────────────────────────── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* ── Panel card ─────────────────────────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Inventory bars ──────────────────────────────────── */
+    .inv-item {
+      margin-bottom: 14px;
+    }
+
+    .inv-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    .inv-zone {
+      font-weight: 500;
+    }
+
+    .inv-count {
+      font-weight: 700;
+    }
+
+    .bar-track {
+      background: var(--bg);
+      border-radius: 20px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 20px;
+      background: var(--bar-color, var(--accent2));
+      transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .inv-meta {
+      font-size: 0.73rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Alerts list ─────────────────────────────────────── */
+    .alert-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .alert-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 12px 14px;
+      border-left: 4px solid var(--alert-color);
+      animation: slideIn .25s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-8px);
+      }
+    }
+
+    .alert-badge {
+      font-size: 0.67rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 20px;
+      background: var(--alert-color);
+      color: #000;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .alert-body {
+      flex: 1;
+    }
+
+    .alert-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .alert-msg {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .alert-zone {
+      font-size: 0.73rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Zone table ─────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.83rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 10px;
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .chip {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 9px;
+      border-radius: 20px;
+    }
+
+    .chip-ok {
+      background: rgba(63, 185, 80, .18);
+      color: var(--accent2);
+    }
+
+    .chip-bad {
+      background: rgba(248, 81, 73, .18);
+      color: var(--critical);
+    }
+
+    /* ── LLM Panel ──────────────────────────────────────── */
+    .llm-panel {
+      background: linear-gradient(135deg, #161b22 60%, #0d1831);
+      border: 1px solid #1c3a6e;
+      border-radius: var(--radius);
+      padding: 24px 26px;
+    }
+
+    .llm-panel .panel-title {
+      color: var(--accent);
+    }
+
+    .llm-text {
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .llm-placeholder {
+      font-size: 0.88rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Detections raw table ───────────────────────────── */
+    .raw-json {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: #a8c8a4;
+      overflow-x: auto;
+      max-height: 260px;
+      overflow-y: auto;
+    }
+
+    /* ── Empty state ────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state svg {
+      opacity: 0.4;
+    }
+
+    .empty-state p {
+      font-size: 0.88rem;
+      text-align: center;
+    }
+
+    /* ── Toast ──────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      box-shadow: var(--shadow);
+      display: none;
+      z-index: 999;
+      max-width: 320px;
+    }
+
+    #toast.error {
+      border-color: var(--critical);
+      color: var(--critical);
+    }
+
+    #toast.show {
+      display: block;
+      animation: fadeUp .25s ease;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+    }
+
+    /* ── Timestamp ──────────────────────────────────────── */
+    .timestamp {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* ── YOLO Preview ───────────────────────────────────── */
+    .yolo-preview {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .yolo-preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .yolo-preview-header h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .yolo-img-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      background: #000;
+      min-height: 180px;
+      position: relative;
+    }
+
+    .yolo-img-wrap img {
+      max-width: 100%;
+      max-height: 520px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .yolo-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: center;
+      width: 100%;
+    }
+
+    .yolo-loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, .6);
+    }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .two-col {
+        grid-template-columns: 1fr;
+      }
+
+      .upload-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 500px) {
+      .kpi-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════ -->
+  <header>
+    <div class="logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </svg>
+      Retail Monitor
+    </div>
+
+    <div class="api-row">
+      <input id="apiBase" type="text" value="http://localhost:8000" placeholder="http://localhost:8000" />
+      <div id="statusDot" class="status-dot offline" title="Estado de la API"></div>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN ═════════════════════════════════════════════ -->
+  <main>
+
+    <!-- YOLO Visualization -->
+    <div class="yolo-preview">
+      <div class="yolo-preview-header">
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <path d="M9 9h6v6H9z" />
+          </svg>
+          Vista YOLO — Detección con zonas
+        </h3>
+        <button class="btn btn-primary" id="btnVisualize" onclick="runVisualize()"
+          style="padding:6px 14px;font-size:.82rem;">
+          🔍 Ver detección YOLO
+        </button>
+      </div>
+      <div class="yolo-img-wrap" id="yoloImgWrap">
+        <div class="yolo-placeholder" id="yoloPlaceholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          <p>Sube una imagen y haz clic en <strong>"Ver detección YOLO"</strong><br>para ver exactamente qué detecta el
+            modelo</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload row -->
+    <div class="upload-row">
+      <!-- Image upload -->
+      <div class="upload-card" id="imgCard">
+        <input type="file" id="imgInput" accept="image/*" />
+        <div class="icon">🖼️</div>
+        <h3>Analizar Imagen</h3>
+        <p>Sube una foto de la estantería (.jpg / .png)</p>
+        <p id="imgName" style="margin-top:8px;font-size:.8rem;color:var(--accent);"></p>
+      </div>
+
+      <!-- Video upload -->
+      <div class="upload-card" id="vidCard">
+        <input type="file" id="vidInput" accept="video/*" />
+        <div class="icon">🎬</div>
+        <h3>Analizar Video</h3>
+        <p>Sube un video de la estantería (.mp4 / .mov)</p>
+        <p id="vidName" style="margin-top:8px;font-size:.8rem;color:var(--accent);"></p>
+      </div>
+    </div>
+
+    <div class="btn-run">
+      <button class="btn btn-primary" id="btnAnalyzeImg" onclick="runAnalysis('image')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+        Analizar Imagen
+      </button>
+      &nbsp;&nbsp;
+      <button class="btn btn-primary" id="btnAnalyzeVid" onclick="runAnalysis('video')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+        Analizar Video
+      </button>
+      &nbsp;&nbsp;
+      <button class="btn btn-success" id="btnWebcam" onclick="runWebcam()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M3 9a9 9 0 0 1 18 0v6a9 9 0 0 1-18 0V9z" />
+        </svg>
+        Usar Webcam
+      </button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="spinner"></div>
+      <div>
+        <div class="progress-text" id="progressText">Procesando…</div>
+        <div class="timestamp" id="progressSub">Ejecutando YOLO + pipeline completo</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div>
+      <div class="section-title">Resumen del frame</div>
+      <div class="kpi-row">
+        <div class="kpi" style="--kpi-color:#58a6ff">
+          <div class="kpi-label">Objetos detectados</div>
+          <div class="kpi-value" id="kpiDetections">—</div>
+          <div class="kpi-sub" id="kpiTimestamp">Sin análisis aún</div>
+        </div>
+        <div class="kpi" style="--kpi-color:#3fb950">
+          <div class="kpi-label">Total botellas</div>
+          <div class="kpi-value" id="kpiBottles">—</div>
+          <div class="kpi-sub">contadas por YOLO</div>
+        </div>
+        <div class="kpi" style="--kpi-color:#d29922">
+          <div class="kpi-label">Alertas activas</div>
+          <div class="kpi-value" id="kpiAlerts">—</div>
+          <div class="kpi-sub" id="kpiAlertSub">—</div>
+        </div>
+        <div class="kpi" style="--kpi-color:#f85149">
+          <div class="kpi-label">Eventos críticos</div>
+          <div class="kpi-value" id="kpiCritical">—</div>
+          <div class="kpi-sub">requieren atención</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inventory + Alerts -->
+    <div class="two-col">
+      <!-- Inventory by zone -->
+      <div class="panel">
+        <div class="panel-title">
+          📦 Inventario por Zona
+        </div>
+        <div id="inventoryContent">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="7" width="20" height="14" rx="2" />
+              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+            </svg>
+            <p>Sube una imagen o video para ver el inventario por zona</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="panel">
+        <div class="panel-title">
+          🚨 Alertas
+          <span id="alertCount"
+            style="margin-left:auto;font-size:.75rem;background:var(--surface2);padding:2px 10px;border-radius:20px;"></span>
+        </div>
+        <div class="alert-list" id="alertList">
+          <div class="empty-state">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <p>No hay alertas — ejecuta un análisis primero</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone validation table -->
+    <div class="panel">
+      <div class="panel-title">📍 Validación de Zonas — Objetos detectados</div>
+      <div id="zoneTable">
+        <div class="empty-state">
+          <p>Sin datos de zona</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- LLM Analysis -->
+    <div class="llm-panel">
+      <div class="panel-title">
+        🤖 Diagnóstico Inteligente (Grok AI)
+      </div>
+      <div id="llmContent">
+        <p class="llm-placeholder">El análisis de inteligencia artificial aparecerá aquí una vez ejecutes el pipeline.
+          Activa Grok en <code>settings.json</code> para obtener diagnóstico real.</p>
+      </div>
+    </div>
+
+    <!-- Raw detections -->
+    <div class="panel">
+      <div class="panel-title" style="cursor:pointer;" onclick="toggleRaw()">
+        🔍 Detecciones crudas (JSON)
+        <span id="rawToggle" style="margin-left:auto;font-size:.75rem;color:var(--muted);">▼ expandir</span>
+      </div>
+      <div id="rawContent" style="display:none;">
+        <pre class="raw-json" id="rawJson">Sin datos</pre>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- ═══ SCRIPT ════════════════════════════════════════════ -->
+  <script>
+    /* ── helpers ──────────────────────────────── */
+    const $ = id => document.getElementById(id);
+    const API = () => ($('apiBase').value || 'http://localhost:8000').replace(/\/$/, '');
+
+    function toast(msg, type = '') {
+      const t = $('toast');
+      t.textContent = msg;
+      t.className = `show ${type}`;
+      setTimeout(() => t.className = '', 4000);
+    }
+
+    function setProgress(visible, text = '') {
+      const w = $('progressWrap');
+      w.classList.toggle('visible', visible);
+      if (text) $('progressText').textContent = text;
+    }
+
+    /* ── run visualize ────────────────────────────── */
+    async function runVisualize() {
+      const imgFile = $('imgInput').files[0];
+      if (!imgFile) {
+        toast('Selecciona una imagen primero', 'error');
+        return;
+      }
+
+      const btn = $('btnVisualize');
+      btn.disabled = true;
+
+      // Show loading overlay
+      const wrap = $('yoloImgWrap');
+      let loadDiv = document.createElement('div');
+      loadDiv.className = 'yolo-loading';
+      loadDiv.id = 'yoloLoadingOverlay';
+      loadDiv.innerHTML = '<div class="spinner"></div>';
+      wrap.appendChild(loadDiv);
+      $('yoloPlaceholder') && ($('yoloPlaceholder').style.display = 'none');
+
+      const formData = new FormData();
+      formData.append('file', imgFile);
+
+      try {
+        const resp = await fetch(`${API()}/visualize-image`, { method: 'POST', body: formData });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+          throw new Error(err.detail || resp.statusText);
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+
+        // Remove old image if present
+        const old = wrap.querySelector('img');
+        if (old) old.remove();
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = 'YOLO detection result';
+        wrap.appendChild(img);
+        toast('Vista YOLO generada ✓');
+      } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+        const ph = $('yoloPlaceholder');
+        if (ph) ph.style.display = '';
+      } finally {
+        btn.disabled = false;
+        const ov = document.getElementById('yoloLoadingOverlay');
+        if (ov) ov.remove();
+      }
+    }
+
+    /* ── check API health ─────────────────────── */
+    async function checkHealth() {
+      try {
+        const r = await fetch(`${API()}/health`, { signal: AbortSignal.timeout(3000) });
+        const ok = r.ok;
+        $('statusDot').className = ok ? 'status-dot' : 'status-dot offline';
+      } catch {
+        $('statusDot').className = 'status-dot offline';
+      }
+    }
+    checkHealth();
+    setInterval(checkHealth, 8000);
+
+    /* ── file name display ────────────────────── */
+    $('imgInput').addEventListener('change', e => {
+      $('imgName').textContent = e.target.files[0]?.name || '';
+    });
+    $('vidInput').addEventListener('change', e => {
+      $('vidName').textContent = e.target.files[0]?.name || '';
+    });
+
+    /* ── run analysis ─────────────────────────── */
+    async function runAnalysis(type) {
+      let endpoint, formData, msg;
+      
+      if (type === 'video') {
+        const vidFile = $('vidInput').files[0];
+        if (!vidFile) {
+          toast('Selecciona un video primero', 'error');
+          return;
+        }
+        endpoint = '/analyze-video';
+        formData = new FormData();
+        formData.append('file', vidFile);
+        msg = `Procesando video "${vidFile.name}"…`;
+      } else {
+        const imgFile = $('imgInput').files[0];
+        if (!imgFile) {
+          toast('Selecciona una imagen primero', 'error');
+          return;
+        }
+        endpoint = '/analyze-image';
+        formData = new FormData();
+        formData.append('file', imgFile);
+        msg = `Analizando imagen "${imgFile.name}"…`;
+      }
+
+      const btn1 = $('btnAnalyzeImg');
+      const btn2 = $('btnAnalyzeVid');
+      btn1.disabled = true;
+      btn2.disabled = true;
+
+      setProgress(true, msg);
+
+      try {
+        const resp = await fetch(`${API()}${endpoint}`, { method: 'POST', body: formData });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+          throw new Error(err.detail || resp.statusText);
+        }
+        const data = await resp.json();
+        renderResults(data, type === 'video');
+        toast('Análisis completado ✓');
+      } catch (e) {
+        toast(`Error: ${e.message}`, 'error');
+      } finally {
+        btn1.disabled = false;
+        btn2.disabled = false;
+        setProgress(false);
+      }
+    }
+
+    async function runWebcam() {
+      const btn = $('btnWebcam');
+      btn.disabled = true;
+      setProgress(true, 'Capturando frame de la webcam…');
+      try {
+        const resp = await fetch(`${API()}/run-once`, { method: 'POST' });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+          throw new Error(err.detail || resp.statusText);
+        }
+        const data = await resp.json();
+        renderResults(data, false);
+        toast('Frame capturado y analizado ✓');
+      } catch (e) {
+        toast(`Error webcam: ${e.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+        setProgress(false);
+      }
+    }
+
+    /* ── render pipeline results ──────────────── */
+    function renderResults(data, isVideo) {
+      /* For video responses use final_result, else use data directly */
+      const result = isVideo ? (data.final_result || data) : data;
+
+      const detections = result.detections?.objects || [];
+      const inventoryItems = result.inventory?.items || [];
+      const alerts = result.alerts?.alerts || [];
+      const events = result.rules?.events || [];
+      const zoneDetections = result.zones?.detections || [];
+      const llmAnalysis = isVideo
+        ? data.llm?.analysis
+        : result.llm?.analysis;
+      const ts = result.frame?.timestamp || result.detections?.timestamp || '';
+
+      /* KPIs */
+      $('kpiDetections').textContent = detections.length;
+      $('kpiTimestamp').textContent = ts ? new Date(ts).toLocaleString('es-EC') : '—';
+
+      const bottles = inventoryItems.find(i => i.class_name === 'bottle');
+      $('kpiBottles').textContent = bottles ? bottles.count : detections.length;
+
+      const criticalAlerts = alerts.filter(a => a.severity === 'critical').length;
+      $('kpiAlerts').textContent = alerts.length;
+      $('kpiAlertSub').textContent = alerts.length === 0 ? 'Todo correcto' :
+        alerts.length === 1 ? '1 alerta activa' :
+          `${alerts.length} alertas activas`;
+      $('kpiCritical').textContent = criticalAlerts;
+
+      /* Inventory per zone */
+      renderInventory(zoneDetections);
+
+      /* Alerts */
+      renderAlerts(alerts);
+      $('alertCount').textContent = alerts.length ? `${alerts.length} alerta${alerts.length > 1 ? 's' : ''}` : 'sin alertas';
+
+      /* Zone table */
+      renderZoneTable(zoneDetections);
+
+      /* LLM */
+      const llmEl = $('llmContent');
+      if (llmAnalysis && !llmAnalysis.startsWith('LLM diagnosis skipped')) {
+        llmEl.innerHTML = `<div class="llm-text">${escHtml(llmAnalysis)}</div>`;
+      } else if (llmAnalysis) {
+        llmEl.innerHTML = `<p class="llm-placeholder">${escHtml(llmAnalysis)}</p>`;
+      } else {
+        llmEl.innerHTML = `<p class="llm-placeholder">Sin análisis LLM disponible.</p>`;
+      }
+
+      /* Raw JSON */
+      $('rawJson').textContent = JSON.stringify(result.detections, null, 2);
+    }
+
+    /* ── inventory by zone bars ───────────────── */
+    function renderInventory(zoneDetections) {
+      /* Count bottles per zone */
+      const zoneCounts = {};
+      const zoneNames = {};
+      for (const zd of zoneDetections) {
+        if (!zd.zone_id) continue;
+        zoneCounts[zd.zone_id] = (zoneCounts[zd.zone_id] || 0) + 1;
+        zoneNames[zd.zone_id] = zd.zone_name || zd.zone_id;
+      }
+
+      const targets = { top: 4, middle: 2, bottom: 3 };
+      const names = { top: 'Repisa Superior', middle: 'Repisa Media', bottom: 'Repisa Inferior' };
+
+      if (Object.keys(zoneCounts).length === 0) {
+        $('inventoryContent').innerHTML = `<div class="empty-state"><p>No se detectaron objetos dentro de las zonas configuradas.<br>Verifica las coordenadas en zones.json.</p></div>`;
+        return;
+      }
+
+      let html = '';
+      for (const [zid, target] of Object.entries(targets)) {
+        const count = zoneCounts[zid] || 0;
+        const label = zoneNames[zid] || names[zid];
+        const pct = Math.min((count / Math.max(target, 1)) * 100, 100);
+        const color = count === 0 ? '#f85149' :
+          count < target ? '#d29922' :
+            count > target ? '#58a6ff' : '#3fb950';
+
+        html += `
+        <div class="inv-item">
+          <div class="inv-header">
+            <span class="inv-zone">${label}</span>
+            <span class="inv-count" style="color:${color}">${count} / ${target}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${pct}%;--bar-color:${color}"></div>
+          </div>
+          <div class="inv-meta">Meta: ${target} botellas &nbsp;·&nbsp; Detectadas: ${count}</div>
+        </div>`;
+      }
+      $('inventoryContent').innerHTML = html;
+    }
+
+    /* ── alerts list ──────────────────────────── */
+    const SEVERITY_COLOR = {
+      critical: '#f85149',
+      high: '#d29922',
+      medium: '#58a6ff',
+      low: '#3fb950',
+    };
+    const SEVERITY_ES = {
+      critical: 'CRÍTICO',
+      high: 'ALTO',
+      medium: 'MEDIO',
+      low: 'BAJO',
+    };
+    const ZONE_ES = { top: 'Repisa Superior', middle: 'Repisa Media', bottom: 'Repisa Inferior' };
+    const TYPE_ICON = {
+      inventory_absent: '🚫',
+      inventory_low: '📉',
+      inventory_excess: '📈',
+      inventory_mismatch: '⚠️',
+      object_misplaced: '📦',
+    };
+
+    function renderAlerts(alerts) {
+      if (!alerts.length) {
+        $('alertList').innerHTML = `
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <p>✅ Sin alertas — inventario correcto en todas las zonas</p>
+        </div>`;
+        return;
+      }
+
+      /* Sort: critical first */
+      const order = { critical: 0, high: 1, medium: 2, low: 3 };
+      const sorted = [...alerts].sort((a, b) => (order[a.severity] || 9) - (order[b.severity] || 9));
+
+      $('alertList').innerHTML = sorted.map(alert => {
+        const color = SEVERITY_COLOR[alert.severity] || '#888';
+        const sev = SEVERITY_ES[alert.severity] || alert.severity.toUpperCase();
+        const icon = TYPE_ICON[alert.event_type] || '❗';
+        const zone = ZONE_ES[alert.zone_id] || alert.zone_id || '';
+        return `
+        <div class="alert-item" style="--alert-color:${color}">
+          <span class="alert-badge" style="background:${color}">${sev}</span>
+          <div class="alert-body">
+            <div class="alert-title">${icon} ${alert.title}</div>
+            <div class="alert-msg">${alert.message}</div>
+            ${zone ? `<div class="alert-zone">📍 ${zone}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    /* ── zone detection table ─────────────────── */
+    function renderZoneTable(zoneDetections) {
+      if (!zoneDetections.length) {
+        $('zoneTable').innerHTML = `<div class="empty-state"><p>Sin datos de zona</p></div>`;
+        return;
+      }
+      const rows = zoneDetections.map(zd => {
+        const cls = zd.is_in_allowed_zone
+          ? `<span class="chip chip-ok">✓ Permitido</span>`
+          : `<span class="chip chip-bad">✗ Mal ubicado</span>`;
+        const zone = ZONE_ES[zd.zone_id] || zd.zone_name || '— fuera de zona —';
+        const d = zd.detection;
+        const cx = ((d.bbox.x1 + d.bbox.x2) / 2).toFixed(0);
+        const cy = ((d.bbox.y1 + d.bbox.y2) / 2).toFixed(0);
+        return `<tr>
+        <td>${d.class_name}</td>
+        <td>${(d.confidence * 100).toFixed(0)}%</td>
+        <td>${zone}</td>
+        <td style="font-family:monospace;font-size:.75rem">(${cx}, ${cy})</td>
+        <td>${cls}</td>
+      </tr>`;
+      }).join('');
+
+      $('zoneTable').innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Clase</th><th>Confianza</th><th>Zona</th><th>Centro bbox</th><th>Estado</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    /* ── toggle raw JSON ──────────────────────── */
+    function toggleRaw() {
+      const el = $('rawContent');
+      const toggle = $('rawToggle');
+      const visible = el.style.display !== 'none';
+      el.style.display = visible ? 'none' : 'block';
+      toggle.textContent = visible ? '▼ expandir' : '▲ colapsar';
+    }
+
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/\n/g, '<br>');
+    }
+  </script>
+</body>
+
+</html>

@@ -14,3 +14,11 @@ class CameraError(RetailMonitoringError):
 class ConfigurationError(RetailMonitoringError):
     """Raised when a configuration file is missing or invalid."""
 
+
+class LlmClientError(RetailMonitoringError):
+    """Raised when the LLM provider cannot process a request."""
+
+
+class VideoAnalysisError(RetailMonitoringError):
+    """Raised when a video cannot be opened or analyzed."""
+

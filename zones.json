@@ -2,30 +2,36 @@
   "zones": [
     {
       "zone_id": "top",
-      "name": "Repisa superior",
-      "x1": 0,
-      "y1": 250,
-      "x2": 720,
-      "y2": 720,
-      "allowed_classes": ["bottle"]
+      "name": "Repisa Superior",
+      "x1": 290,
+      "y1": 290,
+      "x2": 680,
+      "y2": 570,
+      "allowed_classes": [
+        "bottle"
+      ]
     },
     {
       "zone_id": "middle",
-      "name": "Repisa media",
-      "x1": 0,
-      "y1": 720,
-      "x2": 720,
-      "y2": 1110,
-      "allowed_classes": ["bottle"]
+      "name": "Repisa Media",
+      "x1": 288,
+      "y1": 620,
+      "x2": 700,
+      "y2": 955,
+      "allowed_classes": [
+        "bottle"
+      ]
     },
     {
       "zone_id": "bottom",
-      "name": "Repisa inferior",
-      "x1": 0,
-      "y1": 1110,
-      "x2": 720,
-      "y2": 1400,
-      "allowed_classes": ["bottle"]
+      "name": "Repisa Inferior",
+      "x1": 290,
+      "y1": 985,
+      "x2": 710,
+      "y2": 1370,
+      "allowed_classes": [
+        "bottle"
+      ]
     }
   ]
 }

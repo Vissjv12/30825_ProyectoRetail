@@ -41,9 +41,11 @@ class AlertManager:
         """Map event type to a short human-readable title."""
 
         mapping = {
+            "inventory_absent": "Inventory absent",
             "inventory_low": "Inventory low",
             "inventory_excess": "Inventory excess",
             "inventory_mismatch": "Inventory mismatch",
+            "object_misplaced": "Object misplaced",
         }
         return mapping.get(event_type, "System alert")
 

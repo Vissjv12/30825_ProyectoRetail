@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from app.alerts.manager import AlertManager
@@ -11,7 +11,7 @@ from app.core.models import FramePayload
 from app.detection.detector import YoloDetector
 from app.inventory.engine import InventoryEngine
 from app.llm.client import LlmClient
-from app.llm.models import LlmRequest
+from app.llm.models import LlmRequest, LlmResponse
 from app.rules.engine import RulesEngine
 from app.rules.models import RulesContext
 from app.zones.validator import ZoneValidator
@@ -24,9 +24,10 @@ class MonitoringPipeline:
     settings: SettingsConfig
     zones: ZonesConfig
     inventory_config: InventoryConfig
+    _detector: YoloDetector | None = field(default=None, init=False, repr=False)
 
-    def run(self, frame: FramePayload) -> dict[str, Any]:
-        detector = YoloDetector(self.settings.model_path, self.settings.confidence_threshold)
+    def run(self, frame: FramePayload, include_llm: bool = True) -> dict[str, Any]:
+        detector = self._get_detector()
         detection_payload = detector.detect(frame)
         detection_frame = detector.parser.parse(
             frame_id=detection_payload["frame_id"],
@@ -41,15 +42,17 @@ class MonitoringPipeline:
             RulesContext(inventory=inventory_summary, zone_validation=zone_result)
         )
         alert_batch = AlertManager().build_alerts(rules_evaluation)
-        llm_response = LlmClient(self.settings.llm_provider).analyze(
-            LlmRequest(
-                summary={
-                    "detections": detection_payload.get("objects", []),
-                    "inventory": asdict(inventory_summary),
-                    "alerts": [asdict(alert) for alert in alert_batch.alerts],
-                    "events": [asdict(event) for event in rules_evaluation.events],
-                }
-            )
+        llm_summary = {
+            "detections": detection_payload.get("objects", []),
+            "inventory": asdict(inventory_summary),
+            "zones": asdict(zone_result),
+            "alerts": [asdict(alert) for alert in alert_batch.alerts],
+            "events": [asdict(event) for event in rules_evaluation.events],
+        }
+        llm_response = (
+            self.analyze_summary(llm_summary)
+            if include_llm
+            else LlmResponse(analysis="LLM diagnosis skipped for sampled frame.", raw={"reason": "sampled-frame"})
         )
 
         return {
@@ -61,6 +64,18 @@ class MonitoringPipeline:
             "alerts": asdict(alert_batch),
             "llm": asdict(llm_response),
         }
+
+    def analyze_summary(self, summary: dict[str, object]) -> Any:
+        """Generate one LLM diagnosis from a JSON-only system summary."""
+
+        return LlmClient(self.settings.llm).analyze(LlmRequest(summary=summary))
+
+    def _get_detector(self) -> YoloDetector:
+        """Load YOLO on first use and reuse it for later frames."""
+
+        if self._detector is None:
+            self._detector = YoloDetector(self.settings.model_path, self.settings.confidence_threshold)
+        return self._detector
 
 
 def _result_from_payload(payload: dict[str, Any]) -> Any:

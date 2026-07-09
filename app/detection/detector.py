@@ -29,7 +29,8 @@ class YoloDetector:
     def detect(self, frame: FramePayload) -> dict[str, Any]:
         """Detect objects in one frame and return a JSON-ready dict."""
 
-        results = self._model.predict(frame.image, conf=self.conf_threshold)
+        # Class 39 is 'bottle' in COCO dataset.
+        results = self._model.predict(frame.image, conf=self.conf_threshold, classes=[39])
         parsed = self.parser.parse(
             frame_id=frame.frame_id,
             timestamp=frame.timestamp,

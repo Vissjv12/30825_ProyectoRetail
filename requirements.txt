@@ -6,3 +6,6 @@ requests
 matplotlib
 supervision
 pytest
+fastapi
+uvicorn
+python-multipart

@@ -10,6 +10,7 @@ class LlmRequest:
     """JSON-only request sent to the LLM client."""
 
     summary: dict[str, object]
+    prompt: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

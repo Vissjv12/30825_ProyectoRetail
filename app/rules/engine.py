@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from app.rules.models import (
     ExpectedItem,
@@ -23,7 +23,7 @@ class RulesEngine:
     def evaluate(self, context: RulesContext) -> RulesEvaluationResult:
         """Generate business events from inventory and zone validation."""
 
-        events: list[RuleEvent] = []
+        events = self._build_misplaced_events(context)
         observed_by_zone = self._count_by_zone_and_class(context)
 
         for expectation in self.expectations:
@@ -38,6 +38,33 @@ class RulesEngine:
             source=context.inventory.source,
             events=events,
         )
+
+    @staticmethod
+    def _build_misplaced_events(context: RulesContext) -> list[RuleEvent]:
+        """Build events for detections outside configured or allowed zones."""
+
+        events: list[RuleEvent] = []
+        for zoned_detection in context.zone_validation.detections:
+            if zoned_detection.is_in_allowed_zone:
+                continue
+
+            detection = zoned_detection.detection
+            zone_label = zoned_detection.zone_name or "outside configured zones"
+            events.append(
+                RuleEvent(
+                    event_type="object_misplaced",
+                    severity="high",
+                    zone_id=zoned_detection.zone_id,
+                    class_name=detection.class_name,
+                    message=f"Object {detection.class_name} is not allowed in {zone_label}",
+                    details={
+                        "zone_name": zoned_detection.zone_name,
+                        "confidence": detection.confidence,
+                        "bbox": asdict(detection.bbox),
+                    },
+                )
+            )
+        return events
 
     def _count_by_zone_and_class(self, context: RulesContext) -> dict[str, Counter]:
         """Count detected objects by zone and class."""
@@ -54,7 +81,18 @@ class RulesEngine:
         """Build events for one expected item."""
 
         events: list[RuleEvent] = []
-        if observed_count < expected_item.min_count:
+        if observed_count == 0 and expected_item.min_count > 0:
+            events.append(
+                RuleEvent(
+                    event_type="inventory_absent",
+                    severity="critical",
+                    zone_id=zone_id,
+                    class_name=expected_item.class_name,
+                    message=f"No {expected_item.class_name} detected in zone {zone_id}: expected at least {expected_item.min_count}",
+                    details={"expected_min": expected_item.min_count, "observed": observed_count},
+                )
+            )
+        elif observed_count < expected_item.min_count:
             events.append(
                 RuleEvent(
                     event_type="inventory_low",

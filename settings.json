@@ -5,10 +5,13 @@
   },
   "model": {
     "path": "yolo11n.pt",
-    "confidence_threshold": 0.25
+    "confidence_threshold": 0.30
   },
   "llm": {
-    "provider": "openai"
+    "provider": "groq",
+    "model": "llama-3.1-8b-instant",
+    "api_key_env": "GROQ_API_KEY",
+    "base_url": "https://api.groq.com/openai/v1/chat/completions",
+    "enabled": true
   }
 }
-

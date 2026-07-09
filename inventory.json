@@ -5,9 +5,9 @@
       "items": [
         {
           "class_name": "bottle",
-          "min_count": 6,
-          "max_count": 6,
-          "target_count": 6
+          "min_count": 4,
+          "max_count": 4,
+          "target_count": 4
         }
       ]
     },
@@ -16,9 +16,9 @@
       "items": [
         {
           "class_name": "bottle",
-          "min_count": 5,
-          "max_count": 5,
-          "target_count": 5
+          "min_count": 2,
+          "max_count": 2,
+          "target_count": 2
         }
       ]
     },
@@ -27,9 +27,9 @@
       "items": [
         {
           "class_name": "bottle",
-          "min_count": 4,
-          "max_count": 4,
-          "target_count": 4
+          "min_count": 3,
+          "max_count": 3,
+          "target_count": 3
         }
       ]
     }

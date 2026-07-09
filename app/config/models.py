@@ -9,13 +9,24 @@ from app.zones.models import Zone
 
 
 @dataclass(frozen=True, slots=True)
+class LlmConfig:
+    """LLM provider settings used for JSON-only diagnosis."""
+
+    provider: str = "placeholder"
+    model: str = "grok-4.5"
+    api_key_env: str = "XAI_API_KEY"
+    base_url: str = "https://api.x.ai/v1/responses"
+    enabled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class SettingsConfig:
     """Runtime settings used by the application."""
 
     camera_source: str | int
     model_path: str
     confidence_threshold: float = 0.25
-    llm_provider: str = "openai"
+    llm: LlmConfig = field(default_factory=LlmConfig)
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timezone
 from io import BytesIO
@@ -16,7 +17,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 # pyrefly: ignore [missing-import]
 from PIL import Image
 
@@ -141,7 +142,7 @@ def create_app() -> FastAPI:
 
             analyzer = VideoAnalyzer(
                 pipeline=build_pipeline(),
-                config=VideoSamplingConfig(sample_every_seconds=1.0, max_samples=20),
+                config=VideoSamplingConfig(sample_every_seconds=0.0, max_samples=999999),
             )
             return analyzer.analyze(temp_path, file.filename or "uploaded-video")
         except VideoAnalysisError as exc:
@@ -149,6 +150,43 @@ def create_app() -> FastAPI:
         finally:
             if temp_path is not None and temp_path.exists():
                 temp_path.unlink()
+
+    # ── Analyze uploaded video (Streaming) ──────────────────────────────────
+    @app.post("/analyze-video-stream")
+    async def analyze_video_stream(file: UploadFile = File(...)) -> StreamingResponse:
+        if file.content_type is not None and not (
+            file.content_type.startswith("video/") or file.content_type == "application/octet-stream"
+        ):
+            raise HTTPException(status_code=400, detail="Only video files are allowed")
+
+        suffix = Path(file.filename or "uploaded-video.mp4").suffix or ".mp4"
+        
+        async def event_generator():
+            temp_path: Path | None = None
+            try:
+                raw = await file.read()
+                with NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+                    temp_file.write(raw)
+                    temp_path = Path(temp_file.name)
+
+                analyzer = VideoAnalyzer(
+                    pipeline=build_pipeline(),
+                    config=VideoSamplingConfig(sample_every_seconds=0.0, max_samples=999999),
+                )
+                
+                # Yield results frame by frame
+                for chunk in analyzer.analyze_stream(temp_path, file.filename or "uploaded-video"):
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                    
+            except Exception as exc:
+                logger.exception("Error during video streaming")
+                error_event = {"type": "error", "error": str(exc)}
+                yield f"data: {json.dumps(error_event)}\n\n"
+            finally:
+                if temp_path is not None and temp_path.exists():
+                    temp_path.unlink()
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
 
     return app
 

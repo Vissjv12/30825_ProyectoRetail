@@ -982,7 +982,7 @@
           toast('Selecciona un video primero', 'error');
           return;
         }
-        endpoint = '/analyze-video';
+        endpoint = '/analyze-video-stream';
         formData = new FormData();
         formData.append('file', vidFile);
         msg = `Procesando video "${vidFile.name}"…`;
@@ -1011,9 +1011,67 @@
           const err = await resp.json().catch(() => ({ detail: resp.statusText }));
           throw new Error(err.detail || resp.statusText);
         }
-        const data = await resp.json();
-        renderResults(data, type === 'video');
-        toast('Análisis completado ✓');
+        
+        if (type === 'video') {
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          let buffer = "";
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            
+            let boundary = buffer.indexOf('\n\n');
+            while (boundary !== -1) {
+              const chunk = buffer.slice(0, boundary);
+              buffer = buffer.slice(boundary + 2);
+              boundary = buffer.indexOf('\n\n');
+              
+              if (chunk.startsWith('data: ')) {
+                const dataStr = chunk.slice(6);
+                try {
+                  const event = JSON.parse(dataStr);
+                  if (event.type === 'error') {
+                    throw new Error(event.error);
+                  } else if (event.type === 'frame') {
+                    // Update progress
+                    const p = event.progress;
+                    $('progressText').textContent = `Procesando frame ${p.current}/${p.total} (Video frame: ${p.frame_index})`;
+                    // Update UI with frame data
+                    renderResults(event.data, false);
+                    
+                    // Update the image preview if we received an image
+                    if (event.image_b64) {
+                      const wrap = $('yoloImgWrap');
+                      let img = wrap.querySelector('img');
+                      if (!img) {
+                        img = document.createElement('img');
+                        img.alt = 'YOLO detection stream';
+                        wrap.appendChild(img);
+                        $('yoloPlaceholder') && ($('yoloPlaceholder').style.display = 'none');
+                      }
+                      img.src = "data:image/jpeg;base64," + event.image_b64;
+                    }
+                  } else if (event.type === 'summary') {
+                    // Update UI with final summary
+                    $('progressText').textContent = 'Generando diagnóstico LLM... ¡Completado!';
+                    renderResults(event.data, true);
+                    toast('Análisis completado ✓');
+                  }
+                } catch (err) {
+                  console.error('Error parsing SSE event:', err, chunk);
+                  if (err.message) throw err;
+                }
+              }
+            }
+          }
+        } else {
+          const data = await resp.json();
+          renderResults(data, false);
+          toast('Análisis completado ✓');
+        }
       } catch (e) {
         toast(`Error: ${e.message}`, 'error');
       } finally {

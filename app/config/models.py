@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.rules.models import ZoneInventoryExpectation
-from app.zones.models import Zone
+from app.zones.models import ZoneProfile
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +33,8 @@ class SettingsConfig:
 class ZonesConfig:
     """Physical zone definitions."""
 
-    zones: list[Zone] = field(default_factory=list)
+    active_profile: str
+    profile: ZoneProfile
 
 
 @dataclass(frozen=True, slots=True)

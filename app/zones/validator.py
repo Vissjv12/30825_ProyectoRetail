@@ -14,7 +14,13 @@ class ZoneValidator:
 
     zones: list[Zone]
 
-    def validate(self, detection_frame: DetectionFrame) -> ZoneValidationResult:
+    def validate(
+        self,
+        detection_frame: DetectionFrame,
+        profile_id: str | None = None,
+        frame_width: int | None = None,
+        frame_height: int | None = None,
+    ) -> ZoneValidationResult:
         """Validate all detections and return the enriched payload."""
 
         zoned_detections: list[ZonedDetection] = []
@@ -35,6 +41,9 @@ class ZoneValidator:
             frame_id=detection_frame.frame_id,
             timestamp=detection_frame.timestamp,
             source=detection_frame.source,
+            profile_id=profile_id,
+            frame_width=frame_width,
+            frame_height=frame_height,
             detections=zoned_detections,
         )
 

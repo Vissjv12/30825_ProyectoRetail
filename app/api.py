@@ -13,7 +13,7 @@ from tempfile import NamedTemporaryFile
 import cv2
 import numpy as np
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, Query, UploadFile
 # pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
 # pyrefly: ignore [missing-import]
@@ -22,19 +22,20 @@ from fastapi.responses import Response, StreamingResponse
 from PIL import Image
 
 from app.config.loader import load_inventory_config, load_settings_config, load_zones_config
-from app.core.exceptions import VideoAnalysisError
+from app.core.exceptions import ConfigurationError, VideoAnalysisError
 from app.core.models import FramePayload
 from app.infrastructure.camera_manager import CameraManager
 from app.orchestration.pipeline import MonitoringPipeline
 from app.video.analyzer import VideoAnalyzer, VideoSamplingConfig
+from app.zones.service import ZoneProfileService
 
 logger = logging.getLogger(__name__)
 
 
-def build_pipeline() -> MonitoringPipeline:
+def build_pipeline(zone_profile: str | None = None) -> MonitoringPipeline:
     """Read the latest configuration from disk and build a new pipeline."""
     settings = load_settings_config(Path("settings.json"))
-    zones = load_zones_config(Path("zones.json"))
+    zones = load_zones_config(Path("zones.json"), zone_profile)
     inventory = load_inventory_config(Path("inventory.json"))
     return MonitoringPipeline(settings=settings, zones=zones, inventory_config=inventory)
 
@@ -55,10 +56,78 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/api/zones")
+    def get_zones() -> dict:
+        """Return the complete zone profile configuration."""
+
+        return ZoneProfileService(Path("zones.json")).read_all()
+
+    @app.get("/api/zones/active")
+    def get_active_zone_profile() -> dict:
+        """Return the currently active zone profile."""
+
+        service = ZoneProfileService(Path("zones.json"))
+        raw = service.read_all()
+        active_profile = str(raw.get("active_profile", ""))
+        try:
+            return service.read_profile(active_profile)
+        except ConfigurationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/zones/active")
+    def set_active_zone_profile(payload: dict = Body(...)) -> dict:
+        """Set the active zone profile."""
+
+        profile_id = payload.get("profile_id")
+        if not isinstance(profile_id, str) or not profile_id.strip():
+            raise HTTPException(status_code=400, detail="profile_id is required")
+        try:
+            return ZoneProfileService(Path("zones.json")).set_active_profile(profile_id)
+        except ConfigurationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/zones/ensure-profile")
+    def ensure_zone_profile(payload: dict = Body(...)) -> dict:
+        """Create or reuse a normalized profile for a concrete media resolution."""
+
+        try:
+            media_type = str(payload.get("media_type", "media"))
+            width = int(payload.get("width", 0))
+            height = int(payload.get("height", 0))
+            base_profile_id = payload.get("base_profile_id")
+            if base_profile_id is not None and not isinstance(base_profile_id, str):
+                raise ConfigurationError("base_profile_id must be a string")
+            return ZoneProfileService(Path("zones.json")).ensure_resolution_profile(
+                media_type=media_type,
+                width=width,
+                height=height,
+                base_profile_id=base_profile_id,
+            )
+        except (ConfigurationError, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/zones/{profile_id}")
+    def get_zone_profile(profile_id: str) -> dict:
+        """Return one zone profile."""
+
+        try:
+            return ZoneProfileService(Path("zones.json")).read_profile(profile_id)
+        except ConfigurationError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.post("/api/zones/{profile_id}")
+    def save_zone_profile(profile_id: str, payload: dict = Body(...)) -> dict:
+        """Create or replace one zone profile."""
+
+        try:
+            return ZoneProfileService(Path("zones.json")).save_profile(profile_id, payload)
+        except ConfigurationError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # ── Single webcam capture ───────────────────────────────────────────────
     @app.post("/run-once")
-    def run_once() -> dict:
-        pipeline = build_pipeline()
+    def run_once(zone_profile: str | None = Query(default=None)) -> dict:
+        pipeline = build_pipeline(zone_profile)
         camera = CameraManager.from_source(pipeline.settings.camera_source)
         try:
             frame = camera.read()
@@ -68,7 +137,7 @@ def create_app() -> FastAPI:
 
     # ── Analyze uploaded image (returns full pipeline JSON) ─────────────────
     @app.post("/analyze-image")
-    async def analyze_image(file: UploadFile = File(...)) -> dict:
+    async def analyze_image(file: UploadFile = File(...), zone_profile: str | None = Query(default=None)) -> dict:
         if file.content_type is not None and not file.content_type.startswith("image/"):
             raise HTTPException(status_code=400, detail="Only image files are allowed")
 
@@ -85,11 +154,14 @@ def create_app() -> FastAPI:
             image=np.array(image),
             metadata={"content_type": file.content_type, "filename": file.filename},
         )
-        return build_pipeline().run(frame)
+        return build_pipeline(zone_profile).run(frame)
 
     # ── Visualize YOLO detections — returns annotated JPEG image ───────────
     @app.post("/visualize-image")
-    async def visualize_image(file: UploadFile = File(...)) -> Response:
+    async def visualize_image(
+        file: UploadFile = File(...),
+        zone_profile: str | None = Query(default=None),
+    ) -> Response:
         """Run YOLO on an uploaded image and return the annotated JPEG with bounding boxes.
 
         This endpoint is meant for visual debugging: it shows exactly what YOLO
@@ -105,7 +177,7 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=f"Invalid image file: {exc}") from exc
 
         img_array = np.array(image)
-        pipeline = build_pipeline()
+        pipeline = build_pipeline(zone_profile)
         detector = pipeline._get_detector()
 
         # Run YOLO prediction (returns Ultralytics Results list)
@@ -126,7 +198,7 @@ def create_app() -> FastAPI:
 
     # ── Analyze uploaded video ──────────────────────────────────────────────
     @app.post("/analyze-video")
-    async def analyze_video(file: UploadFile = File(...)) -> dict:
+    async def analyze_video(file: UploadFile = File(...), zone_profile: str | None = Query(default=None)) -> dict:
         if file.content_type is not None and not (
             file.content_type.startswith("video/") or file.content_type == "application/octet-stream"
         ):
@@ -141,7 +213,7 @@ def create_app() -> FastAPI:
                 temp_path = Path(temp_file.name)
 
             analyzer = VideoAnalyzer(
-                pipeline=build_pipeline(),
+                pipeline=build_pipeline(zone_profile),
                 config=VideoSamplingConfig(sample_every_seconds=0.0, max_samples=999999),
             )
             return analyzer.analyze(temp_path, file.filename or "uploaded-video")
@@ -153,7 +225,10 @@ def create_app() -> FastAPI:
 
     # ── Analyze uploaded video (Streaming) ──────────────────────────────────
     @app.post("/analyze-video-stream")
-    async def analyze_video_stream(file: UploadFile = File(...)) -> StreamingResponse:
+    async def analyze_video_stream(
+        file: UploadFile = File(...),
+        zone_profile: str | None = Query(default=None),
+    ) -> StreamingResponse:
         if file.content_type is not None and not (
             file.content_type.startswith("video/") or file.content_type == "application/octet-stream"
         ):
@@ -170,7 +245,7 @@ def create_app() -> FastAPI:
                     temp_path = Path(temp_file.name)
 
                 analyzer = VideoAnalyzer(
-                    pipeline=build_pipeline(),
+                    pipeline=build_pipeline(zone_profile),
                     config=VideoSamplingConfig(sample_every_seconds=0.0, max_samples=999999),
                 )
                 
@@ -206,7 +281,8 @@ def _draw_zones(image: np.ndarray, zones_config) -> np.ndarray:
     }
     DEFAULT_COLOR = (180, 180, 180)
 
-    for zone in zones_config.zones:
+    height, width = image.shape[:2]
+    for zone in zones_config.profile.to_pixel_zones(width, height):
         color = ZONE_COLORS.get(zone.zone_id, DEFAULT_COLOR)
         x1, y1, x2, y2 = int(zone.x1), int(zone.y1), int(zone.x2), int(zone.y2)
 

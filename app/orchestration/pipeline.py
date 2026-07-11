@@ -37,7 +37,14 @@ class MonitoringPipeline:
         )
 
         inventory_summary = InventoryEngine().build_summary(detection_frame)
-        zone_result = ZoneValidator(self.zones.zones).validate(detection_frame)
+        frame_width, frame_height = _frame_size(frame.image)
+        pixel_zones = self.zones.profile.to_pixel_zones(frame_width, frame_height)
+        zone_result = ZoneValidator(pixel_zones).validate(
+            detection_frame,
+            profile_id=self.zones.profile.profile_id,
+            frame_width=frame_width,
+            frame_height=frame_height,
+        )
         rules_evaluation = RulesEngine(self.inventory_config.expectations).evaluate(
             RulesContext(inventory=inventory_summary, zone_validation=zone_result)
         )
@@ -57,6 +64,13 @@ class MonitoringPipeline:
 
         return {
             "frame": {"frame_id": frame.frame_id, "timestamp": frame.timestamp, "source": frame.source},
+            "zone_profile": {
+                "profile_id": self.zones.profile.profile_id,
+                "name": self.zones.profile.name,
+                "coordinate_mode": self.zones.profile.coordinate_mode,
+                "reference_width": self.zones.profile.reference_width,
+                "reference_height": self.zones.profile.reference_height,
+            },
             "detections": detection_payload,
             "inventory": asdict(inventory_summary),
             "zones": asdict(zone_result),
@@ -89,3 +103,15 @@ def _result_from_payload(payload: dict[str, Any]) -> Any:
         id=None,
     )
     return SimpleNamespace(boxes=boxes, names={obj["class_id"]: obj["class_name"] for obj in objects})
+
+
+def _frame_size(image: Any) -> tuple[int, int]:
+    """Return frame width and height from an image-like object."""
+
+    shape = getattr(image, "shape", None)
+    if shape is not None and len(shape) >= 2:
+        return int(shape[1]), int(shape[0])
+    size = getattr(image, "size", None)
+    if isinstance(size, tuple) and len(size) >= 2:
+        return int(size[0]), int(size[1])
+    return 0, 0

@@ -651,6 +651,94 @@
       background: rgba(0, 0, 0, .6);
     }
 
+    .calibration-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+
+    .calibration-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .calibration-toolbar select,
+    .calibration-toolbar input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: .82rem;
+    }
+
+    .calibration-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) 360px;
+      gap: 18px;
+    }
+
+    .calibration-canvas-wrap {
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 220px;
+      overflow: auto;
+    }
+
+    #zoneCanvas {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .zone-form-list {
+      display: grid;
+      gap: 10px;
+      max-height: 420px;
+      overflow: auto;
+    }
+
+    .zone-form-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .zone-form-card h4 {
+      font-size: .84rem;
+      margin-bottom: 8px;
+    }
+
+    .zone-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .zone-grid label {
+      font-size: .72rem;
+      color: var(--muted);
+    }
+
+    .zone-grid input {
+      width: 100%;
+      margin-top: 3px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 7px;
+    }
+
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 900px) {
       .kpi-row {
@@ -662,6 +750,10 @@
       }
 
       .upload-row {
+        grid-template-columns: 1fr;
+      }
+
+      .calibration-layout {
         grid-template-columns: 1fr;
       }
     }
@@ -742,6 +834,32 @@
         <h3>Analizar Video</h3>
         <p>Sube un video de la estantería (.mp4 / .mov)</p>
         <p id="vidName" style="margin-top:8px;font-size:.8rem;color:var(--accent);"></p>
+      </div>
+    </div>
+
+    <div class="calibration-panel">
+      <div class="panel-title">
+        Configuracion de zonas por resolucion
+        <span id="calibrationStatus"
+          style="margin-left:auto;font-size:.75rem;color:var(--muted);">Carga una imagen o video para detectar resolucion</span>
+      </div>
+      <div class="calibration-toolbar">
+        <select id="zoneProfileSelect"></select>
+        <input id="mediaResolution" type="text" readonly placeholder="Resolucion detectada" />
+        <button class="btn btn-primary" id="btnLoadProfiles" onclick="loadZoneProfiles()"
+          style="padding:7px 12px;font-size:.78rem;">Actualizar perfiles</button>
+        <button class="btn btn-success" id="btnSaveZones" onclick="saveCurrentZones()"
+          style="padding:7px 12px;font-size:.78rem;">Guardar zonas</button>
+      </div>
+      <div class="calibration-layout">
+        <div class="calibration-canvas-wrap">
+          <canvas id="zoneCanvas" width="900" height="500"></canvas>
+        </div>
+        <div id="zoneForm" class="zone-form-list">
+          <div class="empty-state" style="padding:20px;">
+            <p>Selecciona un archivo para crear o cargar su perfil de zonas.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -885,6 +1003,15 @@
     /* ── helpers ──────────────────────────────── */
     const $ = id => document.getElementById(id);
     const API = () => ($('apiBase').value || 'http://localhost:8000').replace(/\/$/, '');
+    const zoneEditor = {
+      allProfiles: {},
+      profileId: '',
+      profile: null,
+      mediaType: '',
+      width: 0,
+      height: 0,
+      image: null,
+    };
 
     function toast(msg, type = '') {
       const t = $('toast');
@@ -897,6 +1024,193 @@
       const w = $('progressWrap');
       w.classList.toggle('visible', visible);
       if (text) $('progressText').textContent = text;
+    }
+
+    const profileQuery = () => zoneEditor.profileId ? `?zone_profile=${encodeURIComponent(zoneEditor.profileId)}` : '';
+
+    async function loadZoneProfiles() {
+      try {
+        const resp = await fetch(`${API()}/api/zones`);
+        if (!resp.ok) throw new Error(resp.statusText);
+        const data = await resp.json();
+        zoneEditor.allProfiles = data.profiles || {};
+        const select = $('zoneProfileSelect');
+        select.innerHTML = Object.entries(zoneEditor.allProfiles).map(([id, profile]) =>
+          `<option value="${id}">${id} - ${profile.reference_width || '?'}x${profile.reference_height || '?'}</option>`
+        ).join('');
+        zoneEditor.profileId = zoneEditor.profileId || data.active_profile || Object.keys(zoneEditor.allProfiles)[0] || '';
+        if (zoneEditor.profileId) {
+          select.value = zoneEditor.profileId;
+          await loadZoneProfile(zoneEditor.profileId);
+        }
+      } catch (e) {
+        toast(`No se pudieron cargar perfiles: ${e.message}`, 'error');
+      }
+    }
+
+    async function loadZoneProfile(profileId) {
+      if (!profileId) return;
+      const resp = await fetch(`${API()}/api/zones/${encodeURIComponent(profileId)}`);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new Error(err.detail || resp.statusText);
+      }
+      const data = await resp.json();
+      zoneEditor.profileId = data.profile_id;
+      zoneEditor.profile = data;
+      renderZoneForm();
+      drawZoneCanvas();
+    }
+
+    $('zoneProfileSelect').addEventListener('change', async e => {
+      try {
+        await loadZoneProfile(e.target.value);
+        $('calibrationStatus').textContent = `Perfil activo en dashboard: ${zoneEditor.profileId}`;
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    async function ensureProfileForFile(file, mediaType) {
+      const dims = mediaType === 'video' ? await readVideoSize(file) : await readImageSize(file);
+      zoneEditor.mediaType = mediaType;
+      zoneEditor.width = dims.width;
+      zoneEditor.height = dims.height;
+      zoneEditor.image = dims.image || null;
+      $('mediaResolution').value = `${dims.width} x ${dims.height}`;
+
+      const resp = await fetch(`${API()}/api/zones/ensure-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_type: mediaType, width: dims.width, height: dims.height }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new Error(err.detail || resp.statusText);
+      }
+      const profile = await resp.json();
+      zoneEditor.profileId = profile.profile_id;
+      await loadZoneProfiles();
+      $('zoneProfileSelect').value = zoneEditor.profileId;
+      await loadZoneProfile(zoneEditor.profileId);
+      $('calibrationStatus').textContent = profile.created
+        ? `Perfil creado: ${profile.profile_id}`
+        : `Perfil reutilizado: ${profile.profile_id}`;
+    }
+
+    function readImageSize(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight, image: img });
+        img.onerror = () => reject(new Error('No se pudo leer la imagen'));
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    function readVideoSize(file) {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+          const width = video.videoWidth || 0;
+          const height = video.videoHeight || 0;
+          URL.revokeObjectURL(video.src);
+          resolve({ width, height, image: null });
+        };
+        video.onerror = () => reject(new Error('No se pudo leer el video'));
+        video.src = URL.createObjectURL(file);
+      });
+    }
+
+    function renderZoneForm() {
+      if (!zoneEditor.profile || !Array.isArray(zoneEditor.profile.zones)) return;
+      $('zoneForm').innerHTML = zoneEditor.profile.zones.map((zone, index) => `
+        <div class="zone-form-card">
+          <h4>${escHtml(zone.name || zone.zone_id)}</h4>
+          <div class="zone-grid">
+            ${['x1', 'y1', 'x2', 'y2'].map(key => `
+              <label>${key}
+                <input type="number" min="0" max="1" step="0.0001" value="${Number(zone[key]).toFixed(4)}"
+                  data-zone-index="${index}" data-zone-key="${key}" oninput="updateZoneValue(this)" />
+              </label>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateZoneValue(input) {
+      const index = Number(input.dataset.zoneIndex);
+      const key = input.dataset.zoneKey;
+      const value = Math.max(0, Math.min(1, Number(input.value || 0)));
+      zoneEditor.profile.zones[index][key] = value;
+      drawZoneCanvas();
+    }
+
+    function drawZoneCanvas() {
+      const canvas = $('zoneCanvas');
+      const ctx = canvas.getContext('2d');
+      const width = zoneEditor.width || zoneEditor.profile?.reference_width || 900;
+      const height = zoneEditor.height || zoneEditor.profile?.reference_height || 1600;
+      const maxW = 860;
+      const scale = Math.min(1, maxW / Math.max(width, 1));
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      if (zoneEditor.image) {
+        ctx.drawImage(zoneEditor.image, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#7d8590';
+        ctx.font = '14px Inter, sans-serif';
+        ctx.fillText('Vista de zonas para video', 16, 28);
+      }
+      const colors = { top: '#3fb950', middle: '#58a6ff', bottom: '#d29922' };
+      for (const zone of zoneEditor.profile?.zones || []) {
+        const x = Number(zone.x1) * canvas.width;
+        const y = Number(zone.y1) * canvas.height;
+        const w = (Number(zone.x2) - Number(zone.x1)) * canvas.width;
+        const h = (Number(zone.y2) - Number(zone.y1)) * canvas.height;
+        const color = colors[zone.zone_id] || '#f0f6fc';
+        ctx.fillStyle = color + '22';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = color;
+        ctx.fillRect(x, Math.max(0, y - 24), 160, 22);
+        ctx.fillStyle = '#0d1117';
+        ctx.font = '12px Inter, sans-serif';
+        ctx.fillText(zone.name || zone.zone_id, x + 6, Math.max(14, y - 8));
+      }
+    }
+
+    async function saveCurrentZones() {
+      if (!zoneEditor.profileId || !zoneEditor.profile) {
+        toast('No hay perfil seleccionado', 'error');
+        return;
+      }
+      const payload = {
+        name: zoneEditor.profile.name,
+        reference_width: zoneEditor.width || zoneEditor.profile.reference_width,
+        reference_height: zoneEditor.height || zoneEditor.profile.reference_height,
+        coordinate_mode: 'normalized',
+        zones: zoneEditor.profile.zones,
+      };
+      const resp = await fetch(`${API()}/api/zones/${encodeURIComponent(zoneEditor.profileId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        toast(`No se guardo: ${err.detail || resp.statusText}`, 'error');
+        return;
+      }
+      await loadZoneProfile(zoneEditor.profileId);
+      toast('Zonas guardadas');
     }
 
     /* ── run visualize ────────────────────────────── */
@@ -923,7 +1237,7 @@
       formData.append('file', imgFile);
 
       try {
-        const resp = await fetch(`${API()}/visualize-image`, { method: 'POST', body: formData });
+        const resp = await fetch(`${API()}/visualize-image${profileQuery()}`, { method: 'POST', body: formData });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({ detail: resp.statusText }));
           throw new Error(err.detail || resp.statusText);
@@ -963,13 +1277,28 @@
     }
     checkHealth();
     setInterval(checkHealth, 8000);
+    loadZoneProfiles();
 
     /* ── file name display ────────────────────── */
-    $('imgInput').addEventListener('change', e => {
-      $('imgName').textContent = e.target.files[0]?.name || '';
+    $('imgInput').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      $('imgName').textContent = file?.name || '';
+      if (!file) return;
+      try {
+        await ensureProfileForFile(file, 'image');
+      } catch (err) {
+        toast(`Perfil de imagen: ${err.message}`, 'error');
+      }
     });
-    $('vidInput').addEventListener('change', e => {
-      $('vidName').textContent = e.target.files[0]?.name || '';
+    $('vidInput').addEventListener('change', async e => {
+      const file = e.target.files[0];
+      $('vidName').textContent = file?.name || '';
+      if (!file) return;
+      try {
+        await ensureProfileForFile(file, 'video');
+      } catch (err) {
+        toast(`Perfil de video: ${err.message}`, 'error');
+      }
     });
 
     /* ── run analysis ─────────────────────────── */
@@ -1006,7 +1335,7 @@
       setProgress(true, msg);
 
       try {
-        const resp = await fetch(`${API()}${endpoint}`, { method: 'POST', body: formData });
+        const resp = await fetch(`${API()}${endpoint}${profileQuery()}`, { method: 'POST', body: formData });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({ detail: resp.statusText }));
           throw new Error(err.detail || resp.statusText);
@@ -1086,7 +1415,7 @@
       btn.disabled = true;
       setProgress(true, 'Capturando frame de la webcam…');
       try {
-        const resp = await fetch(`${API()}/run-once`, { method: 'POST' });
+        const resp = await fetch(`${API()}/run-once${profileQuery()}`, { method: 'POST' });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({ detail: resp.statusText }));
           throw new Error(err.detail || resp.statusText);

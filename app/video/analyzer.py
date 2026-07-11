@@ -9,6 +9,7 @@ from typing import Any
 
 import base64
 import cv2
+import numpy as np
 
 from app.core.exceptions import VideoAnalysisError
 from app.core.models import FramePayload
@@ -185,7 +186,8 @@ class VideoAnalyzer:
         DEFAULT_COLOR = (180, 180, 180)
 
         # Draw zones
-        for zone in self.pipeline.zones.zones:
+        height, width = frame.shape[:2]
+        for zone in self.pipeline.zones.profile.to_pixel_zones(width, height):
             color = ZONE_COLORS.get(zone.zone_id, DEFAULT_COLOR)
             x1, y1, x2, y2 = int(zone.x1), int(zone.y1), int(zone.x2), int(zone.y2)
             overlay = frame.copy()

@@ -1,37 +1,128 @@
 {
-  "zones": [
-    {
-      "zone_id": "top",
-      "name": "Repisa Superior",
-      "x1": 290,
-      "y1": 290,
-      "x2": 680,
-      "y2": 570,
-      "allowed_classes": [
-        "bottle"
+  "active_profile": "image_vertical_900x1600",
+  "profiles": {
+    "image_vertical_900x1600": {
+      "name": "Imagen vertical estanteria 900x1600",
+      "reference_width": 900,
+      "reference_height": 1600,
+      "coordinate_mode": "normalized",
+      "zones": [
+        {
+          "zone_id": "top",
+          "name": "Repisa Superior",
+          "x1": 0.3222,
+          "y1": 0.1813,
+          "x2": 0.7556,
+          "y2": 0.3563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "middle",
+          "name": "Repisa Media",
+          "x1": 0.32,
+          "y1": 0.3875,
+          "x2": 0.7778,
+          "y2": 0.5969,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "bottom",
+          "name": "Repisa Inferior",
+          "x1": 0.3222,
+          "y1": 0.6156,
+          "x2": 0.7889,
+          "y2": 0.8563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        }
       ]
     },
-    {
-      "zone_id": "middle",
-      "name": "Repisa Media",
-      "x1": 288,
-      "y1": 620,
-      "x2": 700,
-      "y2": 955,
-      "allowed_classes": [
-        "bottle"
+    "image_899x1599": {
+      "name": "Image 899x1599",
+      "reference_width": 899,
+      "reference_height": 1599,
+      "coordinate_mode": "normalized",
+      "zones": [
+        {
+          "zone_id": "top",
+          "name": "Repisa Superior",
+          "x1": 0.3222,
+          "y1": 0.1813,
+          "x2": 0.7556,
+          "y2": 0.3563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "middle",
+          "name": "Repisa Media",
+          "x1": 0.32,
+          "y1": 0.3875,
+          "x2": 0.7778,
+          "y2": 0.5969,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "bottom",
+          "name": "Repisa Inferior",
+          "x1": 0.3222,
+          "y1": 0.6156,
+          "x2": 0.7889,
+          "y2": 0.8563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        }
       ]
     },
-    {
-      "zone_id": "bottom",
-      "name": "Repisa Inferior",
-      "x1": 290,
-      "y1": 985,
-      "x2": 710,
-      "y2": 1370,
-      "allowed_classes": [
-        "bottle"
+    "video_478x850": {
+      "name": "Video 478x850",
+      "reference_width": 478,
+      "reference_height": 850,
+      "coordinate_mode": "normalized",
+      "zones": [
+        {
+          "zone_id": "top",
+          "name": "Repisa Superior",
+          "x1": 0.3222,
+          "y1": 0.1813,
+          "x2": 0.7556,
+          "y2": 0.3563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "middle",
+          "name": "Repisa Media",
+          "x1": 0.32,
+          "y1": 0.3875,
+          "x2": 0.7778,
+          "y2": 0.5969,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "bottom",
+          "name": "Repisa Inferior",
+          "x1": 0.3222,
+          "y1": 0.6156,
+          "x2": 0.7889,
+          "y2": 0.8563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        }
       ]
     }
-  ]
+  }
 }

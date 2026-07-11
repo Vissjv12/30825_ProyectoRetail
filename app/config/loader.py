@@ -8,7 +8,7 @@ from app.config.models import InventoryConfig, LlmConfig, SettingsConfig, ZonesC
 from app.config.settings import load_json
 from app.core.exceptions import ConfigurationError
 from app.rules.models import ExpectedItem, ZoneInventoryExpectation
-from app.zones.models import Zone
+from app.zones.models import Zone, ZoneProfile
 
 
 def load_settings_config(path: str | Path) -> SettingsConfig:
@@ -44,28 +44,72 @@ def load_settings_config(path: str | Path) -> SettingsConfig:
     )
 
 
-def load_zones_config(path: str | Path) -> ZonesConfig:
+def load_zones_config(path: str | Path, profile_id: str | None = None) -> ZonesConfig:
     raw = load_json(Path(path))
+    if "profiles" in raw:
+        return _load_profiled_zones_config(raw, profile_id)
+
     zones_raw = raw.get("zones")
     if not isinstance(zones_raw, list):
-        raise ConfigurationError("zones.json must contain a 'zones' array")
+        raise ConfigurationError("zones.json must contain a 'zones' array or a 'profiles' object")
 
-    zones: list[Zone] = []
-    for zone_raw in zones_raw:
-        if not isinstance(zone_raw, dict):
-            raise ConfigurationError("Each zone must be a JSON object")
-        zones.append(
-            Zone(
-                zone_id=str(zone_raw.get("zone_id")),
-                name=str(zone_raw.get("name")),
-                x1=float(zone_raw.get("x1")),
-                y1=float(zone_raw.get("y1")),
-                x2=float(zone_raw.get("x2")),
-                y2=float(zone_raw.get("y2")),
-                allowed_classes=[str(item) for item in zone_raw.get("allowed_classes", [])],
-            )
-        )
-    return ZonesConfig(zones=zones)
+    profile = ZoneProfile(
+        profile_id="legacy",
+        name="Legacy zones",
+        reference_width=0,
+        reference_height=0,
+        coordinate_mode="pixels",
+        zones=[_parse_zone(zone_raw) for zone_raw in zones_raw],
+    )
+    return ZonesConfig(active_profile="legacy", profile=profile)
+
+
+def _load_profiled_zones_config(raw: dict, profile_id: str | None) -> ZonesConfig:
+    profiles_raw = raw.get("profiles")
+    if not isinstance(profiles_raw, dict) or not profiles_raw:
+        raise ConfigurationError("zones.json 'profiles' must be a non-empty object")
+
+    active_profile = str(raw.get("active_profile") or next(iter(profiles_raw)))
+    selected_profile = profile_id or active_profile
+    profile_raw = profiles_raw.get(selected_profile)
+    if not isinstance(profile_raw, dict):
+        raise ConfigurationError(f"Zone profile not found: {selected_profile}")
+
+    profile = _parse_zone_profile(selected_profile, profile_raw)
+    return ZonesConfig(active_profile=selected_profile, profile=profile)
+
+
+def _parse_zone_profile(profile_id: str, profile_raw: dict) -> ZoneProfile:
+    zones_raw = profile_raw.get("zones")
+    if not isinstance(zones_raw, list):
+        raise ConfigurationError(f"Zone profile '{profile_id}' must contain a zones array")
+
+    coordinate_mode = str(profile_raw.get("coordinate_mode", "normalized"))
+    if coordinate_mode not in {"normalized", "pixels"}:
+        raise ConfigurationError("Zone coordinate_mode must be 'normalized' or 'pixels'")
+
+    return ZoneProfile(
+        profile_id=profile_id,
+        name=str(profile_raw.get("name", profile_id)),
+        reference_width=int(profile_raw.get("reference_width", 0)),
+        reference_height=int(profile_raw.get("reference_height", 0)),
+        coordinate_mode=coordinate_mode,
+        zones=[_parse_zone(zone_raw) for zone_raw in zones_raw],
+    )
+
+
+def _parse_zone(zone_raw: object) -> Zone:
+    if not isinstance(zone_raw, dict):
+        raise ConfigurationError("Each zone must be a JSON object")
+    return Zone(
+        zone_id=str(zone_raw.get("zone_id")),
+        name=str(zone_raw.get("name")),
+        x1=float(zone_raw.get("x1")),
+        y1=float(zone_raw.get("y1")),
+        x2=float(zone_raw.get("x2")),
+        y2=float(zone_raw.get("y2")),
+        allowed_classes=[str(item) for item in zone_raw.get("allowed_classes", [])],
+    )
 
 
 def load_inventory_config(path: str | Path) -> InventoryConfig:

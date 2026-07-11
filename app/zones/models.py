@@ -24,6 +24,38 @@ class Zone:
 
         return self.x1 <= x <= self.x2 and self.y1 <= y <= self.y2
 
+    def to_pixel_zone(self, width: int, height: int, coordinate_mode: str) -> "Zone":
+        """Return this zone in pixel coordinates for a concrete frame size."""
+
+        if coordinate_mode != "normalized":
+            return self
+        return Zone(
+            zone_id=self.zone_id,
+            name=self.name,
+            x1=self.x1 * width,
+            y1=self.y1 * height,
+            x2=self.x2 * width,
+            y2=self.y2 * height,
+            allowed_classes=self.allowed_classes,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneProfile:
+    """A named calibration profile for one camera/image/video geometry."""
+
+    profile_id: str
+    name: str
+    reference_width: int
+    reference_height: int
+    coordinate_mode: str
+    zones: list[Zone] = field(default_factory=list)
+
+    def to_pixel_zones(self, width: int, height: int) -> list[Zone]:
+        """Resolve all zones to pixel coordinates for a concrete frame size."""
+
+        return [zone.to_pixel_zone(width, height, self.coordinate_mode) for zone in self.zones]
+
 
 @dataclass(frozen=True, slots=True)
 class ZonedDetection:
@@ -42,5 +74,8 @@ class ZoneValidationResult:
     frame_id: str
     timestamp: str
     source: str
+    profile_id: str | None
+    frame_width: int | None
+    frame_height: int | None
     detections: list[ZonedDetection]
 

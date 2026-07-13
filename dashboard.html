@@ -106,6 +106,48 @@
       animation: none;
     }
 
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 2px;
+    }
+
+    .tab-btn {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      color: #0d1117;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .dashboard-view {
+      display: none;
+      gap: 24px;
+    }
+
+    .dashboard-view.active {
+      display: grid;
+    }
+
     @keyframes pulse {
 
       0%,
@@ -474,6 +516,29 @@
       border-bottom: none;
     }
 
+    .audit-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .audit-table-wrap {
+      overflow-x: auto;
+    }
+
+    .audit-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .audit-json-preview {
+      max-height: 520px;
+      overflow: auto;
+    }
+
     .chip {
       display: inline-block;
       font-size: 0.7rem;
@@ -739,6 +804,73 @@
       padding: 5px 7px;
     }
 
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 900;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, .72);
+      backdrop-filter: blur(6px);
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-panel {
+      width: min(1180px, 100%);
+      max-height: calc(100vh - 48px);
+      overflow: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .modal-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h2 {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    .modal-close:hover {
+      color: var(--critical);
+      border-color: var(--critical);
+    }
+
+    .modal-body {
+      padding: 18px 20px 22px;
+    }
+
     /* ── Responsive ─────────────────────────────────────── */
     @media (max-width: 900px) {
       .kpi-row {
@@ -780,6 +912,8 @@
     </div>
 
     <div class="api-row">
+      <button class="btn btn-ghost" id="btnOpenZoneModal" onclick="openZoneModal()"
+        style="padding:6px 12px;font-size:.82rem;">Zonas</button>
       <input id="apiBase" type="text" value="http://localhost:8000" placeholder="http://localhost:8000" />
       <div id="statusDot" class="status-dot offline" title="Estado de la API"></div>
     </div>
@@ -787,6 +921,12 @@
 
   <!-- ═══ MAIN ═════════════════════════════════════════════ -->
   <main>
+    <div class="view-tabs">
+      <button class="tab-btn active" id="tabMonitor" onclick="switchView('monitor')">Monitoreo</button>
+      <button class="tab-btn" id="tabAudit" onclick="switchView('audit')">Auditorias</button>
+    </div>
+
+    <section id="monitorView" class="dashboard-view active">
 
     <!-- YOLO Visualization -->
     <div class="yolo-preview">
@@ -834,32 +974,6 @@
         <h3>Analizar Video</h3>
         <p>Sube un video de la estantería (.mp4 / .mov)</p>
         <p id="vidName" style="margin-top:8px;font-size:.8rem;color:var(--accent);"></p>
-      </div>
-    </div>
-
-    <div class="calibration-panel">
-      <div class="panel-title">
-        Configuracion de zonas por resolucion
-        <span id="calibrationStatus"
-          style="margin-left:auto;font-size:.75rem;color:var(--muted);">Carga una imagen o video para detectar resolucion</span>
-      </div>
-      <div class="calibration-toolbar">
-        <select id="zoneProfileSelect"></select>
-        <input id="mediaResolution" type="text" readonly placeholder="Resolucion detectada" />
-        <button class="btn btn-primary" id="btnLoadProfiles" onclick="loadZoneProfiles()"
-          style="padding:7px 12px;font-size:.78rem;">Actualizar perfiles</button>
-        <button class="btn btn-success" id="btnSaveZones" onclick="saveCurrentZones()"
-          style="padding:7px 12px;font-size:.78rem;">Guardar zonas</button>
-      </div>
-      <div class="calibration-layout">
-        <div class="calibration-canvas-wrap">
-          <canvas id="zoneCanvas" width="900" height="500"></canvas>
-        </div>
-        <div id="zoneForm" class="zone-form-list">
-          <div class="empty-state" style="padding:20px;">
-            <p>Selecciona un archivo para crear o cargar su perfil de zonas.</p>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -974,11 +1088,11 @@
     <!-- LLM Analysis -->
     <div class="llm-panel">
       <div class="panel-title">
-        🤖 Diagnóstico Inteligente (Grok AI)
+        🤖 Diagnóstico Inteligente (Groq AI)
       </div>
       <div id="llmContent">
         <p class="llm-placeholder">El análisis de inteligencia artificial aparecerá aquí una vez ejecutes el pipeline.
-          Activa Grok en <code>settings.json</code> para obtener diagnóstico real.</p>
+          Activa Groq en <code>settings.json</code> para obtener diagnóstico real.</p>
       </div>
     </div>
 
@@ -993,10 +1107,78 @@
       </div>
     </div>
 
+    </section>
+
+    <section id="auditView" class="dashboard-view">
+      <div class="panel">
+        <div class="panel-title">
+          Historial de auditorias
+          <span id="auditCount"
+            style="margin-left:auto;font-size:.75rem;background:var(--surface2);padding:2px 10px;border-radius:20px;">0 registros</span>
+        </div>
+        <div class="audit-toolbar">
+          <button class="btn btn-primary" onclick="renderAuditTable()">Actualizar</button>
+          <button class="btn btn-ghost" onclick="clearAuditHistory()">Limpiar historial</button>
+        </div>
+        <div class="audit-table-wrap" id="auditTable">
+          <div class="empty-state">
+            <p>No hay auditorias guardadas en esta sesion.</p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Toast -->
   <div id="toast"></div>
+
+  <div class="modal-overlay" id="zoneModal" onclick="closeZoneModal(event)">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="zoneModalTitle">
+      <div class="modal-header">
+        <h2 id="zoneModalTitle">Configuracion de zonas por resolucion</h2>
+        <button class="modal-close" type="button" onclick="closeZoneModal()" aria-label="Cerrar">x</button>
+      </div>
+      <div class="modal-body">
+        <div class="calibration-panel">
+          <div class="panel-title">
+            Perfil y coordenadas
+            <span id="calibrationStatus"
+              style="margin-left:auto;font-size:.75rem;color:var(--muted);">Carga una imagen o video para detectar resolucion</span>
+          </div>
+          <div class="calibration-toolbar">
+            <select id="zoneProfileSelect"></select>
+            <input id="mediaResolution" type="text" readonly placeholder="Resolucion detectada" />
+            <button class="btn btn-primary" id="btnLoadProfiles" onclick="loadZoneProfiles()"
+              style="padding:7px 12px;font-size:.78rem;">Actualizar perfiles</button>
+            <button class="btn btn-success" id="btnSaveZones" onclick="saveCurrentZones()"
+              style="padding:7px 12px;font-size:.78rem;">Guardar zonas</button>
+          </div>
+          <div class="calibration-layout">
+            <div class="calibration-canvas-wrap">
+              <canvas id="zoneCanvas" width="900" height="500"></canvas>
+            </div>
+            <div id="zoneForm" class="zone-form-list">
+              <div class="empty-state" style="padding:20px;">
+                <p>Selecciona un archivo para crear o cargar su perfil de zonas.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="auditModal" onclick="closeAuditModal(event)">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="auditModalTitle">
+      <div class="modal-header">
+        <h2 id="auditModalTitle">Auditoria</h2>
+        <button class="modal-close" type="button" onclick="closeAuditModal()" aria-label="Cerrar">x</button>
+      </div>
+      <div class="modal-body">
+        <div id="auditModalContent"></div>
+      </div>
+    </div>
+  </div>
 
   <!-- ═══ SCRIPT ════════════════════════════════════════════ -->
   <script>
@@ -1012,6 +1194,7 @@
       height: 0,
       image: null,
     };
+    const AUDIT_STORAGE_KEY = 'retail_monitor_audits_v1';
 
     function toast(msg, type = '') {
       const t = $('toast');
@@ -1024,6 +1207,153 @@
       const w = $('progressWrap');
       w.classList.toggle('visible', visible);
       if (text) $('progressText').textContent = text;
+    }
+
+    function switchView(view) {
+      $('monitorView').classList.toggle('active', view === 'monitor');
+      $('auditView').classList.toggle('active', view === 'audit');
+      $('tabMonitor').classList.toggle('active', view === 'monitor');
+      $('tabAudit').classList.toggle('active', view === 'audit');
+      if (view === 'audit') renderAuditTable();
+    }
+
+    function loadAudits() {
+      try {
+        return JSON.parse(localStorage.getItem(AUDIT_STORAGE_KEY) || '[]');
+      } catch {
+        return [];
+      }
+    }
+
+    function saveAudits(records) {
+      localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(records.slice(0, 100)));
+      renderAuditTable();
+    }
+
+    function addAuditRecord(kind, fileName, data, isVideo) {
+      const payload = buildAuditPayload(kind, fileName, data, isVideo);
+      const records = loadAudits();
+      records.unshift({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        kind,
+        file_name: fileName,
+        created_at: new Date().toISOString(),
+        alert_count: payload.alerts?.length || payload.final_alerts?.length || 0,
+        event_count: payload.events?.length || payload.final_events?.length || 0,
+        payload,
+      });
+      saveAudits(records);
+    }
+
+    function buildAuditPayload(kind, fileName, data, isVideo) {
+      const result = isVideo ? (data.final_result || data) : data;
+      const base = {
+        audit_type: kind,
+        file_name: fileName,
+        analyzed_at: new Date().toISOString(),
+        zone_profile: result.zone_profile || null,
+        detections: result.detections || null,
+        inventory: result.inventory || null,
+        zones: result.zones || null,
+        events: result.rules?.events || [],
+        alerts: result.alerts?.alerts || [],
+      };
+      if (isVideo) {
+        base.video_summary = data.video_summary || null;
+        base.final_events = data.video_summary?.final_events || base.events;
+        base.final_alerts = data.video_summary?.final_alerts || base.alerts;
+      }
+      return base;
+    }
+
+    function renderAuditTable() {
+      const records = loadAudits();
+      $('auditCount').textContent = `${records.length} registro${records.length === 1 ? '' : 's'}`;
+      if (!records.length) {
+        $('auditTable').innerHTML = `<div class="empty-state"><p>No hay auditorias guardadas en esta sesion.</p></div>`;
+        return;
+      }
+      const rows = records.map(record => `
+        <tr>
+          <td>${escHtml(record.file_name || 'sin nombre')}</td>
+          <td>${escHtml(record.kind)}</td>
+          <td>${new Date(record.created_at).toLocaleString('es-EC')}</td>
+          <td>${record.alert_count}</td>
+          <td>${record.event_count}</td>
+          <td>
+            <div class="audit-actions">
+              <button class="btn btn-primary" style="padding:5px 9px;font-size:.74rem;" onclick="diagnoseAudit('${record.id}')">Diagnostico Groq</button>
+              <button class="btn btn-ghost" style="padding:5px 9px;font-size:.74rem;" onclick="showAuditJson('${record.id}')">Ver JSON</button>
+              <button class="btn btn-ghost" style="padding:5px 9px;font-size:.74rem;" onclick="deleteAudit('${record.id}')">Eliminar</button>
+            </div>
+          </td>
+        </tr>`).join('');
+      $('auditTable').innerHTML = `
+        <table>
+          <thead>
+            <tr><th>Archivo</th><th>Tipo</th><th>Fecha</th><th>Alertas</th><th>Eventos</th><th>Acciones</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function findAudit(id) {
+      return loadAudits().find(record => record.id === id);
+    }
+
+    function showAuditJson(id) {
+      const record = findAudit(id);
+      if (!record) return;
+      $('auditModalTitle').textContent = `JSON - ${record.file_name}`;
+      $('auditModalContent').innerHTML = `<pre class="raw-json audit-json-preview">${escHtml(JSON.stringify(record.payload, null, 2))}</pre>`;
+      $('auditModal').classList.add('open');
+    }
+
+    async function diagnoseAudit(id) {
+      const record = findAudit(id);
+      if (!record) return;
+      $('auditModalTitle').textContent = `Diagnostico Groq - ${record.file_name}`;
+      $('auditModalContent').innerHTML = `<div class="empty-state"><div class="spinner"></div><p>Generando diagnostico con Groq...</p></div>`;
+      $('auditModal').classList.add('open');
+      try {
+        const resp = await fetch(`${API()}/api/audit/diagnose`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audit_json: record.payload }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+          throw new Error(err.detail || resp.statusText);
+        }
+        const data = await resp.json();
+        $('auditModalContent').innerHTML = `<div class="llm-text">${escHtml(data.analysis || 'Sin diagnostico')}</div>`;
+      } catch (err) {
+        $('auditModalContent').innerHTML = `<p class="llm-placeholder">${escHtml(err.message)}</p>`;
+      }
+    }
+
+    function deleteAudit(id) {
+      saveAudits(loadAudits().filter(record => record.id !== id));
+    }
+
+    function clearAuditHistory() {
+      if (!confirm('Eliminar todo el historial de auditorias de esta sesion?')) return;
+      saveAudits([]);
+    }
+
+    function closeAuditModal(event) {
+      if (event && event.target !== $('auditModal')) return;
+      $('auditModal').classList.remove('open');
+    }
+
+    function openZoneModal() {
+      $('zoneModal').classList.add('open');
+      drawZoneCanvas();
+    }
+
+    function closeZoneModal(event) {
+      if (event && event.target !== $('zoneModal')) return;
+      $('zoneModal').classList.remove('open');
     }
 
     const profileQuery = () => zoneEditor.profileId ? `?zone_profile=${encodeURIComponent(zoneEditor.profileId)}` : '';
@@ -1071,6 +1401,13 @@
       }
     });
 
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        closeZoneModal();
+        closeAuditModal();
+      }
+    });
+
     async function ensureProfileForFile(file, mediaType) {
       const dims = mediaType === 'video' ? await readVideoSize(file) : await readImageSize(file);
       zoneEditor.mediaType = mediaType;
@@ -1110,15 +1447,31 @@
     function readVideoSize(file) {
       return new Promise((resolve, reject) => {
         const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = () => {
+        const url = URL.createObjectURL(file);
+        video.preload = 'auto';
+        video.muted = true;
+        video.playsInline = true;
+        video.onloadeddata = () => {
           const width = video.videoWidth || 0;
           const height = video.videoHeight || 0;
-          URL.revokeObjectURL(video.src);
-          resolve({ width, height, image: null });
+          if (!width || !height) {
+            URL.revokeObjectURL(url);
+            reject(new Error('El video no reporto una resolucion valida'));
+            return;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, width, height);
+          URL.revokeObjectURL(url);
+          resolve({ width, height, image: canvas });
         };
-        video.onerror = () => reject(new Error('No se pudo leer el video'));
-        video.src = URL.createObjectURL(file);
+        video.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('No se pudo leer el video'));
+        };
+        video.src = url;
       });
     }
 
@@ -1278,6 +1631,7 @@
     checkHealth();
     setInterval(checkHealth, 8000);
     loadZoneProfiles();
+    renderAuditTable();
 
     /* ── file name display ────────────────────── */
     $('imgInput').addEventListener('change', async e => {
@@ -1387,6 +1741,7 @@
                     // Update UI with final summary
                     $('progressText').textContent = 'Generando diagnóstico LLM... ¡Completado!';
                     renderResults(event.data, true);
+                    addAuditRecord('video', vidFile.name, event.data, true);
                     toast('Análisis completado ✓');
                   }
                 } catch (err) {
@@ -1399,6 +1754,7 @@
         } else {
           const data = await resp.json();
           renderResults(data, false);
+          addAuditRecord('image', imgFile.name, data, false);
           toast('Análisis completado ✓');
         }
       } catch (e) {

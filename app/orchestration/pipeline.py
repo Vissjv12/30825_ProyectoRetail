@@ -79,10 +79,10 @@ class MonitoringPipeline:
             "llm": asdict(llm_response),
         }
 
-    def analyze_summary(self, summary: dict[str, object]) -> Any:
+    def analyze_summary(self, summary: dict[str, object], prompt: str | None = None) -> Any:
         """Generate one LLM diagnosis from a JSON-only system summary."""
 
-        return LlmClient(self.settings.llm).analyze(LlmRequest(summary=summary))
+        return LlmClient(self.settings.llm).analyze(LlmRequest(summary=summary, prompt=prompt))
 
     def _get_detector(self) -> YoloDetector:
         """Load YOLO on first use and reuse it for later frames."""

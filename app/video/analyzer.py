@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,7 @@ import numpy as np
 
 from app.core.exceptions import VideoAnalysisError
 from app.core.models import FramePayload
+from app.llm.client import VIDEO_ALERTADOR_PROMPT
 from app.orchestration.pipeline import MonitoringPipeline
 
 
@@ -59,17 +61,8 @@ class VideoAnalyzer:
             raise VideoAnalysisError(f"No frames could be sampled from video file: {video_path}")
 
         final_result = sampled_results[-1]
-        video_summary = {
-            "source": source,
-            "frames_total": total_frames,
-            "frames_analyzed": len(sampled_results),
-            "sample_every_seconds": self.config.sample_every_seconds,
-            "final_inventory": final_result["inventory"],
-            "final_zones": final_result["zones"],
-            "final_events": final_result["rules"]["events"],
-            "final_alerts": final_result["alerts"]["alerts"],
-        }
-        llm_response = self.pipeline.analyze_summary(video_summary)
+        video_summary = self._build_video_summary(source, total_frames, sampled_results)
+        llm_response = self.pipeline.analyze_summary(video_summary, prompt=VIDEO_ALERTADOR_PROMPT)
 
         return {
             "source": source,
@@ -131,19 +124,10 @@ class VideoAnalyzer:
             raise VideoAnalysisError(f"No frames could be sampled from video file: {video_path}")
 
         final_result = sampled_results[-1]
-        video_summary = {
-            "source": source,
-            "frames_total": total_frames,
-            "frames_analyzed": len(sampled_results),
-            "sample_every_seconds": self.config.sample_every_seconds,
-            "final_inventory": final_result["inventory"],
-            "final_zones": final_result["zones"],
-            "final_events": final_result["rules"]["events"],
-            "final_alerts": final_result["alerts"]["alerts"],
-        }
+        video_summary = self._build_video_summary(source, total_frames, sampled_results)
         
         # After all frames, do the final LLM analysis
-        llm_response = self.pipeline.analyze_summary(video_summary)
+        llm_response = self.pipeline.analyze_summary(video_summary, prompt=VIDEO_ALERTADOR_PROMPT)
         
         yield {
             "type": "summary",
@@ -174,7 +158,198 @@ class VideoAnalyzer:
         )
         result = self.pipeline.run(payload, include_llm=False)
         result["frame"]["video_second"] = second
+        result["frame"]["frame_index"] = frame_index
         return result
+
+    def _build_video_summary(
+        self,
+        source: str,
+        total_frames: int,
+        sampled_results: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Build a compact historical summary for the video-level LLM diagnosis."""
+
+        final_result = sampled_results[-1]
+        snapshots = [self._build_snapshot(index, result) for index, result in enumerate(sampled_results)]
+        keyframes = self._select_keyframes(snapshots)
+        event_counts = Counter(
+            event["event_type"]
+            for snapshot in snapshots
+            for event in snapshot["events"]
+            if event.get("event_type")
+        )
+        alert_counts = Counter(
+            alert["event_type"]
+            for snapshot in snapshots
+            for alert in snapshot["alerts"]
+            if alert.get("event_type")
+        )
+
+        return {
+            "source": source,
+            "summary_type": "video_history",
+            "frames_total": total_frames,
+            "frames_analyzed": len(sampled_results),
+            "sample_every_seconds": self.config.sample_every_seconds,
+            "frame_width": final_result["zones"].get("frame_width"),
+            "frame_height": final_result["zones"].get("frame_height"),
+            "zone_profile": final_result.get("zone_profile"),
+            "initial_state": keyframes[0] if keyframes else None,
+            "final_state": keyframes[-1] if keyframes else None,
+            "timeline_keyframes": keyframes,
+            "changes": self._build_changes(keyframes),
+            "event_counts": dict(event_counts),
+            "alert_counts": dict(alert_counts),
+            "final_inventory": final_result["inventory"],
+            "final_zones": final_result["zones"],
+            "final_events": final_result["rules"]["events"],
+            "final_alerts": final_result["alerts"]["alerts"],
+        }
+
+    def _build_snapshot(self, sample_index: int, result: dict[str, Any]) -> dict[str, Any]:
+        """Extract the minimum useful state from one analyzed frame."""
+
+        frame = result.get("frame", {})
+        return {
+            "sample_index": sample_index,
+            "frame_index": frame.get("frame_index"),
+            "video_second": round(float(frame.get("video_second", 0.0)), 2),
+            "inventory_total": self._inventory_total(result),
+            "inventory_by_zone": self._inventory_by_zone(result),
+            "events": self._compact_events(result.get("rules", {}).get("events", [])),
+            "alerts": self._compact_alerts(result.get("alerts", {}).get("alerts", [])),
+        }
+
+    @staticmethod
+    def _inventory_total(result: dict[str, Any]) -> dict[str, int]:
+        """Return total inventory counts by class for one frame."""
+
+        totals: dict[str, int] = {}
+        for item in result.get("inventory", {}).get("items", []):
+            class_name = item.get("class_name")
+            if class_name:
+                totals[str(class_name)] = int(item.get("count", 0))
+        return totals
+
+    @staticmethod
+    def _inventory_by_zone(result: dict[str, Any]) -> dict[str, dict[str, int]]:
+        """Return inventory counts grouped by zone and class for one frame."""
+
+        counts: dict[str, dict[str, int]] = {}
+        for item in result.get("zones", {}).get("detections", []):
+            zone_id = item.get("zone_id")
+            detection = item.get("detection", {})
+            class_name = detection.get("class_name")
+            if not zone_id or not class_name:
+                continue
+            zone_counts = counts.setdefault(str(zone_id), {})
+            zone_counts[str(class_name)] = zone_counts.get(str(class_name), 0) + 1
+        return counts
+
+    @staticmethod
+    def _compact_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Keep event fields useful for video diagnosis."""
+
+        return [
+            {
+                "event_type": event.get("event_type"),
+                "severity": event.get("severity"),
+                "zone_id": event.get("zone_id"),
+                "class_name": event.get("class_name"),
+                "message": event.get("message"),
+                "details": event.get("details", {}),
+            }
+            for event in events
+        ]
+
+    @staticmethod
+    def _compact_alerts(alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Keep alert fields useful for video diagnosis."""
+
+        return [
+            {
+                "event_type": alert.get("event_type"),
+                "severity": alert.get("severity"),
+                "zone_id": alert.get("zone_id"),
+                "class_name": alert.get("class_name"),
+                "message": alert.get("message"),
+            }
+            for alert in alerts
+        ]
+
+    def _select_keyframes(self, snapshots: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return first, final, and every snapshot where business state changes."""
+
+        keyframes: list[dict[str, Any]] = []
+        previous_signature: tuple[Any, ...] | None = None
+        for snapshot in snapshots:
+            signature = self._state_signature(snapshot)
+            if previous_signature is None or signature != previous_signature:
+                keyframes.append(snapshot)
+                previous_signature = signature
+
+        if snapshots and keyframes[-1]["sample_index"] != snapshots[-1]["sample_index"]:
+            keyframes.append(snapshots[-1])
+        return keyframes
+
+    @staticmethod
+    def _state_signature(snapshot: dict[str, Any]) -> tuple[Any, ...]:
+        """Build a comparable signature of inventory, events, and alerts."""
+
+        event_signature = sorted(
+            (event.get("event_type"), event.get("zone_id"), event.get("class_name"))
+            for event in snapshot["events"]
+        )
+        alert_signature = sorted(
+            (alert.get("event_type"), alert.get("zone_id"), alert.get("class_name"))
+            for alert in snapshot["alerts"]
+        )
+        return (
+            tuple(sorted(snapshot["inventory_total"].items())),
+            tuple((zone, tuple(sorted(classes.items()))) for zone, classes in sorted(snapshot["inventory_by_zone"].items())),
+            tuple(event_signature),
+            tuple(alert_signature),
+        )
+
+    @staticmethod
+    def _build_changes(keyframes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Describe inventory count changes between consecutive keyframes."""
+
+        changes: list[dict[str, Any]] = []
+        for previous, current in zip(keyframes, keyframes[1:]):
+            zone_changes: list[dict[str, Any]] = []
+            zones = set(previous["inventory_by_zone"]) | set(current["inventory_by_zone"])
+            for zone_id in sorted(zones):
+                previous_counts = previous["inventory_by_zone"].get(zone_id, {})
+                current_counts = current["inventory_by_zone"].get(zone_id, {})
+                classes = set(previous_counts) | set(current_counts)
+                for class_name in sorted(classes):
+                    before = previous_counts.get(class_name, 0)
+                    after = current_counts.get(class_name, 0)
+                    if before == after:
+                        continue
+                    zone_changes.append(
+                        {
+                            "zone_id": zone_id,
+                            "class_name": class_name,
+                            "from": before,
+                            "to": after,
+                            "delta": after - before,
+                        }
+                    )
+            if zone_changes:
+                changes.append(
+                    {
+                        "from_second": previous["video_second"],
+                        "to_second": current["video_second"],
+                        "from_sample_index": previous["sample_index"],
+                        "to_sample_index": current["sample_index"],
+                        "zone_changes": zone_changes,
+                        "events_at_to_state": current["events"],
+                        "alerts_at_to_state": current["alerts"],
+                    }
+                )
+        return changes
 
     def _draw_annotations(self, frame: np.ndarray, result: dict[str, Any]) -> np.ndarray:
         """Overlay bounding boxes and zones on the frame."""

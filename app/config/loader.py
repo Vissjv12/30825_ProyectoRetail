@@ -36,9 +36,9 @@ def load_settings_config(path: str | Path) -> SettingsConfig:
         confidence_threshold=float(model.get("confidence_threshold", 0.25)),
         llm=LlmConfig(
             provider=str(llm.get("provider", "placeholder")),
-            model=str(llm.get("model", "grok-4.5")),
-            api_key_env=str(llm.get("api_key_env", "XAI_API_KEY")),
-            base_url=str(llm.get("base_url", "https://api.x.ai/v1/responses")),
+            model=str(llm.get("model", "llama-3.1-8b-instant")),
+            api_key_env=str(llm.get("api_key_env", "GROQ_API_KEY")),
+            base_url=str(llm.get("base_url", "https://api.groq.com/openai/v1/chat/completions")),
             enabled=bool(llm.get("enabled", False)),
         ),
     )

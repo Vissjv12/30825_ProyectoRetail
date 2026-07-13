@@ -123,6 +123,88 @@
           ]
         }
       ]
+    },
+    "image_1280x731": {
+      "name": "Image 1280x731",
+      "reference_width": 1280,
+      "reference_height": 731,
+      "coordinate_mode": "normalized",
+      "zones": [
+        {
+          "zone_id": "top",
+          "name": "Repisa Superior",
+          "x1": 0.3222,
+          "y1": 0.1813,
+          "x2": 0.7556,
+          "y2": 0.3563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "middle",
+          "name": "Repisa Media",
+          "x1": 0.32,
+          "y1": 0.3875,
+          "x2": 0.7778,
+          "y2": 0.5969,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "bottom",
+          "name": "Repisa Inferior",
+          "x1": 0.3222,
+          "y1": 0.6156,
+          "x2": 0.7889,
+          "y2": 0.8563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        }
+      ]
+    },
+    "image_2752x1536": {
+      "name": "Image 2752x1536",
+      "reference_width": 2752,
+      "reference_height": 1536,
+      "coordinate_mode": "normalized",
+      "zones": [
+        {
+          "zone_id": "top",
+          "name": "Repisa Superior",
+          "x1": 0.3222,
+          "y1": 0.1813,
+          "x2": 0.7556,
+          "y2": 0.3563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "middle",
+          "name": "Repisa Media",
+          "x1": 0.32,
+          "y1": 0.3875,
+          "x2": 0.7778,
+          "y2": 0.5969,
+          "allowed_classes": [
+            "bottle"
+          ]
+        },
+        {
+          "zone_id": "bottom",
+          "name": "Repisa Inferior",
+          "x1": 0.3222,
+          "y1": 0.6156,
+          "x2": 0.7889,
+          "y2": 0.8563,
+          "allowed_classes": [
+            "bottle"
+          ]
+        }
+      ]
     }
   }
 }

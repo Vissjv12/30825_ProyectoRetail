@@ -13,9 +13,9 @@ class LlmConfig:
     """LLM provider settings used for JSON-only diagnosis."""
 
     provider: str = "placeholder"
-    model: str = "grok-4.5"
-    api_key_env: str = "XAI_API_KEY"
-    base_url: str = "https://api.x.ai/v1/responses"
+    model: str = "llama-3.1-8b-instant"
+    api_key_env: str = "GROQ_API_KEY"
+    base_url: str = "https://api.groq.com/openai/v1/chat/completions"
     enabled: bool = False
 
 

@@ -25,6 +25,8 @@ from app.config.loader import load_inventory_config, load_settings_config, load_
 from app.core.exceptions import ConfigurationError, VideoAnalysisError
 from app.core.models import FramePayload
 from app.infrastructure.camera_manager import CameraManager
+from app.llm.client import AUDIT_ALERTADOR_PROMPT, LlmClient
+from app.llm.models import LlmRequest
 from app.orchestration.pipeline import MonitoringPipeline
 from app.video.analyzer import VideoAnalyzer, VideoSamplingConfig
 from app.zones.service import ZoneProfileService
@@ -125,6 +127,26 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # ── Single webcam capture ───────────────────────────────────────────────
+    @app.post("/api/audit/diagnose")
+    def diagnose_audit(payload: dict = Body(...)) -> dict:
+        """Generate a Groq diagnosis from a stored audit JSON payload."""
+
+        audit_json = payload.get("audit_json")
+        if not isinstance(audit_json, dict):
+            raise HTTPException(status_code=400, detail="audit_json must be a JSON object")
+
+        settings = load_settings_config(Path("settings.json"))
+        response = LlmClient(settings.llm).analyze(
+            LlmRequest(
+                summary={
+                    "summary_type": "audit_record",
+                    "record": audit_json,
+                },
+                prompt=AUDIT_ALERTADOR_PROMPT,
+            )
+        )
+        return {"analysis": response.analysis, "raw": response.raw}
+
     @app.post("/run-once")
     def run_once(zone_profile: str | None = Query(default=None)) -> dict:
         pipeline = build_pipeline(zone_profile)
